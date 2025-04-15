@@ -150,19 +150,20 @@ router.post('/login', async (req, res) => {
 
     console.log(`Generated OTP for ${email}: ${otp}`);
 
-    // Always show OTP in logs for debugging on Vercel
-    console.log(`[VERCEL] OTP for ${email}: ${otp}`);
+    // Check environment - works for both development and Render
+    const isDevOrTest = process.env.NODE_ENV === 'development' || 
+                         process.env.RENDER === '1' || 
+                         process.env.RENDER_EXTERNAL_URL;
 
-    // For testing in development - always output OTP to console
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[DEV] OTP for ${email}: ${otp}`);
-      return res.redirect('/student/verifyOtp');
+    // Always log OTP for debugging in non-production or if fallback is enabled
+    if (isDevOrTest || process.env.ALLOW_OTP_FALLBACK === 'true') {
+      console.log(`[ENV:${process.env.NODE_ENV}] OTP for ${email}: ${otp}`);
     }
 
-    // Even in production, if we're on Vercel (serverless), consider bypassing email
-    // This is useful for testing while the email setup is being configured
-    if (process.env.VERCEL === '1' && process.env.ALLOW_OTP_FALLBACK === 'true') {
-      console.log(`[VERCEL FALLBACK] Using console OTP for ${email}: ${otp}`);
+    // For development or when OTP fallback is explicitly allowed, bypass email
+    if ((isDevOrTest && process.env.NODE_ENV !== 'production') || 
+         process.env.ALLOW_OTP_FALLBACK === 'true') {
+      console.log(`[OTP FALLBACK] Using console OTP for ${email}: ${otp}`);
       return res.redirect('/student/verifyOtp');
     }
 
@@ -192,7 +193,7 @@ router.post('/login', async (req, res) => {
       console.error('[ERROR] Email sending failed:', emailError);
       
       // For production, if email fails, still allow verification page to load but log error
-      // This is helpful when testing on Vercel without email credentials properly set up
+      // This is helpful when testing without email credentials properly set up
       if (process.env.ALLOW_OTP_FALLBACK === 'true') {
         console.log(`[FALLBACK] Using console OTP for ${email}: ${otp}`);
         return res.redirect('/student/verifyOtp');
