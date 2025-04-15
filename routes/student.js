@@ -15,45 +15,39 @@ dotenv.config();
 
 async function studentOnly(req, res, next) {
   try {
+    if (!req.session || !req.session.studentEmail) {
+      return res.redirect('/student/login');
+    }
+    
     // Ensure database is connected before checking authorization
     await connectToDatabase();
-    
-    if (req.session && req.session.studentEmail) return next();
-    return res.redirect('/student/login');
+    return next();
   } catch (error) {
     console.error('[ERROR] Authentication middleware error:', error);
     return res.status(500).send('Server error. Please try again later.');
   }
 }
 
-// ========== SIGN UP ==========
+// ========== ERROR HANDLER ==========
 
-router.get('/signup', (req, res) => {
-  res.render('student/signUp');
-});
-
-router.post('/signup', async (req, res) => {
-  const { name, email, regNumber } = req.body;
-
-  if (!name || !email || !regNumber) {
-    return res.status(400).send('All fields are required');
-  }
-
+// Centralized error handler for database operations
+async function withDbConnection(req, res, operation) {
   try {
     // Ensure database is connected
     await connectToDatabase();
     
-    const existingStudent = await Student.findOne({ email });
-    if (existingStudent) return res.status(400).send('Email already registered.');
-
-    const newStudent = new Student({ name, email, regNumber });
-    await newStudent.save();
-    res.redirect('/student/login');
-  } catch (err) {
-    console.error('[ERROR] Sign Up:', err);
-    res.status(500).send('Registration failed. Please try again later.');
+    // Execute the operation
+    return await operation();
+  } catch (error) {
+    console.error('[ERROR] Database operation failed:', error);
+    
+    // Send appropriate error response
+    if (!res.headersSent) {
+      res.status(500).send('Operation failed. Please try again later.');
+    }
+    return null;
   }
-});
+}
 
 // ========== EMAIL SERVICE ==========
 
@@ -89,6 +83,29 @@ async function sendEmail(to, subject, text, html) {
     throw error; // Rethrow to handle in the calling function
   }
 }
+
+// ========== SIGN UP ==========
+
+router.get('/signup', (req, res) => {
+  res.render('student/signUp');
+});
+
+router.post('/signup', async (req, res) => {
+  const { name, email, regNumber } = req.body;
+
+  if (!name || !email || !regNumber) {
+    return res.status(400).send('All fields are required');
+  }
+
+  await withDbConnection(req, res, async () => {
+    const existingStudent = await Student.findOne({ email });
+    if (existingStudent) return res.status(400).send('Email already registered.');
+
+    const newStudent = new Student({ name, email, regNumber });
+    await newStudent.save();
+    res.redirect('/student/login');
+  });
+});
 
 // ========== LOGIN WITH OTP ==========
 
@@ -133,9 +150,19 @@ router.post('/login', async (req, res) => {
 
     console.log(`Generated OTP for ${email}: ${otp}`);
 
+    // Always show OTP in logs for debugging on Vercel
+    console.log(`[VERCEL] OTP for ${email}: ${otp}`);
+
     // For testing in development - always output OTP to console
     if (process.env.NODE_ENV === 'development') {
       console.log(`[DEV] OTP for ${email}: ${otp}`);
+      return res.redirect('/student/verifyOtp');
+    }
+
+    // Even in production, if we're on Vercel (serverless), consider bypassing email
+    // This is useful for testing while the email setup is being configured
+    if (process.env.VERCEL === '1' && process.env.ALLOW_OTP_FALLBACK === 'true') {
+      console.log(`[VERCEL FALLBACK] Using console OTP for ${email}: ${otp}`);
       return res.redirect('/student/verifyOtp');
     }
 
@@ -236,10 +263,7 @@ router.post('/verifyOtp', async (req, res) => {
 // ========== DASHBOARD & QUIZZES ==========
 
 router.get('/dashboard', studentOnly, async (req, res) => {
-  try {
-    // Ensure database is connected
-    await connectToDatabase();
-    
+  await withDbConnection(req, res, async () => {
     const quizzes = await Quiz.find({});
     const student = await Student.findOne({ email: req.session.studentEmail });
     
@@ -249,17 +273,11 @@ router.get('/dashboard', studentOnly, async (req, res) => {
     }
     
     res.render('student/dashboard', { student, quizzes });
-  } catch (err) {
-    console.error('[ERROR] Fetching dashboard:', err);
-    res.status(500).send('Failed to load dashboard. Please try again later.');
-  }
+  });
 });
 
 router.get('/quiz/:id', studentOnly, async (req, res) => {
-  try {
-    // Ensure database is connected
-    await connectToDatabase();
-    
+  await withDbConnection(req, res, async () => {
     const quiz = await Quiz.findById(req.params.id);
     const student = await Student.findOne({ email: req.session.studentEmail });
 
@@ -285,10 +303,7 @@ router.get('/quiz/:id', studentOnly, async (req, res) => {
       quiz,
       studentId: student._id,
     });
-  } catch (err) {
-    console.error('[ERROR] Fetching quiz:', err);
-    res.status(500).send('Could not load quiz. Please try again later.');
-  }
+  });
 });
 
 // ========== SUBMIT QUIZ ==========
@@ -301,10 +316,7 @@ router.post('/submit/:quizId', studentOnly, async (req, res) => {
     return res.status(400).send('Invalid submission data.');
   }
 
-  try {
-    // Ensure database is connected
-    await connectToDatabase();
-    
+  await withDbConnection(req, res, async () => {
     const student = await Student.findOne({ email: req.session.studentEmail });
     if (!student) return res.status(404).send('Student not found.');
 
@@ -346,10 +358,7 @@ router.post('/submit/:quizId', studentOnly, async (req, res) => {
       quizzes,
       submittedQuizId: quiz._id,
     });
-  } catch (err) {
-    console.error('[ERROR] Submitting quiz:', err);
-    res.status(500).send('Submission failed. Please try again later.');
-  }
+  });
 });
 
 // ========== LOG KEY PRESSES ==========
@@ -361,10 +370,7 @@ router.post('/logKeypress', async (req, res) => {
     return res.status(400).send('Missing required data');
   }
 
-  try {
-    // Ensure database is connected
-    await connectToDatabase();
-    
+  await withDbConnection(req, res, async () => {
     await KeyLog.create({
       studentId,
       quizId,
@@ -374,10 +380,7 @@ router.post('/logKeypress', async (req, res) => {
 
     console.log(`[Key Log] Student ${studentId} pressed "${key}" during quiz ${quizId}`);
     res.sendStatus(200);
-  } catch (err) {
-    console.error('[ERROR] Logging keypress:', err);
-    res.status(500).send('Keypress logging failed');
-  }
+  });
 });
 
 // ========== LOGOUT ==========
