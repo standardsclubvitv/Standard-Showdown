@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const session = require("express-session");
 const bodyParser = require("body-parser");
 const path = require("path");
+const MongoStore = require('connect-mongo');
 
 console.log("[INIT] Required modules loaded");
 
@@ -52,16 +53,22 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 // Session configuration - consider using connect-mongo for production
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "quizSecret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24 // 1 day
-    }
-  })
-);
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your_fallback_secret',
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    collection: 'sessions',
+    ttl: 60 * 60, // Session TTL (1 hour)
+    autoRemove: 'native',
+    touchAfter: 24 * 3600 // Only update the session once per day unless data changes
+  }),
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    maxAge: 1000 * 60 * 60 * 24 // 24 hours
+  }
+}));
 console.log("[MIDDLEWARE] ✅ Middleware setup complete");
 
 // Routes
