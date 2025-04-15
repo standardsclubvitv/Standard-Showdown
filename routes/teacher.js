@@ -60,11 +60,11 @@ async function withDbConnection(req, res, operation) {
 // Login GET
 router.get("/login", (req, res) => {
   // Clear any existing session to prevent issues
-  if (req.session.teacherEmail) {
+  if (req.session && req.session.teacherEmail) {
     req.session.teacherEmail = null;
   }
   
-  res.render("teacher/login");
+  res.render("teacher/login", { error: req.query.error || null });
 });
 
 // Login POST with improved security and validation
@@ -78,7 +78,7 @@ router.post("/login", async (req, res) => {
   
   // Validate both email and password (basic auth)
   if (!email || !password) {
-    return res.status(400).send("Email and password are required");
+    return res.render("teacher/login", { error: "Email and password are required" });
   }
   
   if (email === authorizedTeacherEmail && password === authorizedPassword) {
@@ -98,12 +98,12 @@ router.post("/login", async (req, res) => {
       return res.redirect("/teacher/dashboard");
     } catch (err) {
       console.error('[ERROR] Saving teacher session:', err);
-      return res.status(500).send('Error processing login. Please try again.');
+      return res.render("teacher/login", { error: "Error processing login. Please try again." });
     }
   }
   
   console.log(`[LOGIN] Failed login attempt with email: ${email}`);
-  res.status(401).send("Invalid teacher credentials");
+  res.render("teacher/login", { error: "Invalid teacher credentials" });
 });
 
 // ========== DASHBOARD ==========
@@ -111,8 +111,13 @@ router.post("/login", async (req, res) => {
 // GET: Dashboard (Teacher)
 router.get("/dashboard", teacherOnly, async (req, res) => {
   await withDbConnection(req, res, async () => {
-    const quizzes = await Quiz.find({}).sort({ date: -1 });
-    res.render("teacher/dashboard", { quizzes });
+    try {
+      const quizzes = await Quiz.find({}).sort({ date: -1 });
+      res.render("teacher/dashboard", { quizzes });
+    } catch (error) {
+      console.error('[ERROR] Failed to fetch quizzes:', error);
+      res.status(500).render("error", { message: "Failed to load dashboard data" });
+    }
   });
 });
 
@@ -121,183 +126,224 @@ router.get("/dashboard", teacherOnly, async (req, res) => {
 // GET: Create Quiz Page
 router.get('/create', teacherOnly, async (req, res) => {
   await withDbConnection(req, res, async () => {
-    const quizzes = await Quiz.find({});
-    res.render('teacher/createQuiz', { quizzes });
+    try {
+      const quizzes = await Quiz.find({});
+      res.render('teacher/createQuiz', { quizzes });
+    } catch (error) {
+      console.error('[ERROR] Failed to load quiz creation page:', error);
+      res.status(500).render("error", { message: "Failed to load quiz creation page" });
+    }
   });
 });
 
 // POST: Create quiz
 router.post("/create", teacherOnly, async (req, res) => {
   await withDbConnection(req, res, async () => {
-    const {
-      title,
-      date,
-      duration,
-      questionType,
-      questionText,
-      option1,
-      option2,
-      option3,
-      option4,
-      correctAnswer,
-    } = req.body;
+    try {
+      const {
+        title,
+        date,
+        duration,
+        questionType,
+        questionText,
+        option1,
+        option2,
+        option3,
+        option4,
+        correctAnswer,
+      } = req.body;
 
-    // Validate required fields
-    if (!title || !date || !duration || !questionText || !questionType) {
-      return res.status(400).send("Required fields are missing");
-    }
-
-    // Prepare questions array
-    const questions = questionText.map((text, index) => {
-      if (questionType[index] === "mcq") {
-        return {
-          type: "mcq",
-          question: text,
-          options: [
-            option1[index],
-            option2[index],
-            option3[index],
-            option4[index],
-          ],
-          correctAnswer: correctAnswer[index],
-        };
-      } else {
-        return {
-          type: "descriptive",
-          question: text,
-        };
+      // Validate required fields
+      if (!title || !date || !duration || !questionText || !questionType) {
+        return res.status(400).render("teacher/createQuiz", { 
+          error: "Required fields are missing",
+          formData: req.body // Pass back form data to preserve input
+        });
       }
-    });
 
-    const quiz = new Quiz({
-      title,
-      date,
-      duration,
-      questions,
-    });
+      // Prepare questions array
+      const questions = questionText.map((text, index) => {
+        if (questionType[index] === "mcq") {
+          return {
+            type: "mcq",
+            question: text,
+            options: [
+              option1[index],
+              option2[index],
+              option3[index],
+              option4[index],
+            ],
+            correctAnswer: correctAnswer[index],
+          };
+        } else {
+          return {
+            type: "descriptive",
+            question: text,
+          };
+        }
+      });
 
-    await quiz.save();
-    console.log(`[QUIZ] New quiz created: ${title}`);
-    res.redirect("/teacher/dashboard");
+      const quiz = new Quiz({
+        title,
+        date,
+        duration,
+        questions,
+      });
+
+      await quiz.save();
+      console.log(`[QUIZ] New quiz created: ${title}`);
+      res.redirect("/teacher/dashboard");
+    } catch (error) {
+      console.error('[ERROR] Failed to create quiz:', error);
+      res.status(500).render("teacher/createQuiz", { 
+        error: "Failed to create quiz. Please try again.", 
+        formData: req.body // Pass back form data to preserve input
+      });
+    }
   });
 });
 
 // GET: Edit quiz
 router.get("/edit/:id", teacherOnly, async (req, res) => {
   await withDbConnection(req, res, async () => {
-    const quiz = await Quiz.findById(req.params.id);
-    if (!quiz) return res.status(404).send("Quiz not found");
+    try {
+      const quiz = await Quiz.findById(req.params.id);
+      if (!quiz) return res.status(404).render("error", { message: "Quiz not found" });
 
-    res.render("teacher/editQuiz", { quiz });
+      res.render("teacher/editQuiz", { quiz });
+    } catch (error) {
+      console.error(`[ERROR] Failed to load quiz for editing (ID: ${req.params.id}):`, error);
+      res.status(500).render("error", { message: "Failed to load quiz for editing" });
+    }
   });
 });
 
 // POST: Update quiz
 router.post("/edit/:id", teacherOnly, async (req, res) => {
   await withDbConnection(req, res, async () => {
-    const {
-      title,
-      date,
-      duration,
-      questionType,
-      questionText,
-      option1,
-      option2,
-      option3,
-      option4,
-      correctAnswer,
-    } = req.body;
+    try {
+      const {
+        title,
+        date,
+        duration,
+        questionType,
+        questionText,
+        option1,
+        option2,
+        option3,
+        option4,
+        correctAnswer,
+      } = req.body;
 
-    // Validate required fields
-    if (!title || !date || !duration || !questionText || !questionType) {
-      return res.status(400).send("Required fields are missing");
-    }
-
-    // Prepare questions array
-    const questions = questionText.map((text, index) => {
-      if (questionType[index] === "mcq") {
-        return {
-          type: "mcq",
-          question: text,
-          options: [
-            option1[index],
-            option2[index],
-            option3[index],
-            option4[index],
-          ],
-          correctAnswer: correctAnswer[index],
-        };
-      } else {
-        return {
-          type: "descriptive",
-          question: text,
-        };
+      // Validate required fields
+      if (!title || !date || !duration || !questionText || !questionType) {
+        const quiz = await Quiz.findById(req.params.id);
+        return res.status(400).render("teacher/editQuiz", { 
+          error: "Required fields are missing",
+          quiz: quiz || { _id: req.params.id },
+          formData: req.body // Pass back form data to preserve input
+        });
       }
-    });
 
-    await Quiz.findByIdAndUpdate(req.params.id, {
-      title,
-      date,
-      duration,
-      questions,
-    });
-    
-    console.log(`[QUIZ] Quiz updated: ${req.params.id}`);
-    res.redirect("/teacher/dashboard");
+      // Prepare questions array
+      const questions = questionText.map((text, index) => {
+        if (questionType[index] === "mcq") {
+          return {
+            type: "mcq",
+            question: text,
+            options: [
+              option1[index],
+              option2[index],
+              option3[index],
+              option4[index],
+            ],
+            correctAnswer: correctAnswer[index],
+          };
+        } else {
+          return {
+            type: "descriptive",
+            question: text,
+          };
+        }
+      });
+
+      await Quiz.findByIdAndUpdate(req.params.id, {
+        title,
+        date,
+        duration,
+        questions,
+      });
+      
+      console.log(`[QUIZ] Quiz updated: ${req.params.id}`);
+      res.redirect("/teacher/dashboard");
+    } catch (error) {
+      console.error(`[ERROR] Failed to update quiz (ID: ${req.params.id}):`, error);
+      res.status(500).render("error", { message: "Failed to update quiz" });
+    }
   });
 });
 
 // GET: View responses
 router.get("/responses/:quizId", teacherOnly, async (req, res) => {
   await withDbConnection(req, res, async () => {
-    const quiz = await Quiz.findById(req.params.quizId);
-    if (!quiz) return res.status(404).send("Quiz not found");
+    try {
+      const quiz = await Quiz.findById(req.params.quizId);
+      if (!quiz) return res.status(404).render("error", { message: "Quiz not found" });
 
-    const responses = await Response.find({ quiz: quiz._id }).populate("student");
-    res.render("teacher/response", { quiz, responses });
+      const responses = await Response.find({ quiz: quiz._id }).populate("student");
+      res.render("teacher/response", { quiz, responses });
+    } catch (error) {
+      console.error(`[ERROR] Failed to load responses for quiz (ID: ${req.params.quizId}):`, error);
+      res.status(500).render("error", { message: "Failed to load quiz responses" });
+    }
   });
 });
 
 // GET: Download Quiz Data 
 router.get("/download/:quizId", teacherOnly, async (req, res) => {
   await withDbConnection(req, res, async () => {
-    const quiz = await Quiz.findById(req.params.quizId);
-    if (!quiz) return res.status(404).send("Quiz not found");
+    try {
+      const quiz = await Quiz.findById(req.params.quizId);
+      if (!quiz) return res.status(404).send("Quiz not found");
 
-    const responses = await Response.find({ quiz: quiz._id }).populate("student");
-    
-    // Generate CSV data
-    let csvData = "Student Name,Registration Number,Email,Date Submitted,";
-    
-    // Add question headers
-    quiz.questions.forEach((q, i) => {
-      csvData += `Question ${i+1},`;
-    });
-    csvData += "\n";
-    
-    // Add student response data
-    responses.forEach(response => {
-      const student = response.student;
-      const submitDate = new Date(response.submittedAt).toLocaleString();
+      const responses = await Response.find({ quiz: quiz._id }).populate("student");
       
-      csvData += `${student.name},${student.regNumber},${student.email},${submitDate},`;
+      // Generate CSV data
+      let csvData = "Student Name,Registration Number,Email,Date Submitted,";
       
-      // Add answers
-      const answers = response.answers || [];
+      // Add question headers
       quiz.questions.forEach((q, i) => {
-        const answer = answers[i] || "Not answered";
-        csvData += `"${answer.replace(/"/g, '""')}",`; // Escape quotes for CSV
+        csvData += `Question ${i+1},`;
+      });
+      csvData += "\n";
+      
+      // Add student response data
+      responses.forEach(response => {
+        const student = response.student;
+        const submitDate = new Date(response.submittedAt).toLocaleString();
+        
+        csvData += `${student.name},${student.regNumber},${student.email},${submitDate},`;
+        
+        // Add answers
+        const answers = response.answers || [];
+        quiz.questions.forEach((q, i) => {
+          const answer = answers[i] || "Not answered";
+          csvData += `"${answer.replace(/"/g, '""')}",`; // Escape quotes for CSV
+        });
+        
+        csvData += "\n";
       });
       
-      csvData += "\n";
-    });
-    
-    // Set headers for download
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="quiz-${quiz.title}-responses.csv"`);
-    
-    // Send the CSV data
-    res.send(csvData);
+      // Set headers for download
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="quiz-${quiz.title}-responses.csv"`);
+      
+      // Send the CSV data
+      res.send(csvData);
+    } catch (error) {
+      console.error(`[ERROR] Failed to download responses for quiz (ID: ${req.params.quizId}):`, error);
+      res.status(500).send("Failed to generate CSV file");
+    }
   });
 });
 
