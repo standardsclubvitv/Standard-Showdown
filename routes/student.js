@@ -41,6 +41,10 @@ router.post('/signup', async (req, res) => {
 
 // ========== LOGIN WITH OTP ==========
 
+router.get('/login', (req, res) => {
+  res.render('student/login');
+});
+
 router.post('/login', async (req, res) => {
   const { email } = req.body;
 
@@ -54,19 +58,12 @@ router.post('/login', async (req, res) => {
 
     console.log(`Generated OTP for ${email}: ${otp}`);
 
-    // Updated nodemailer configuration with more robust settings
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true, // use SSL
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, // Use App Password, not regular password
+        pass: process.env.EMAIL_PASS,
       },
-      tls: {
-        rejectUnauthorized: false // Helps in some environments
-      }
     });
 
     await transporter.sendMail({
@@ -74,17 +71,27 @@ router.post('/login', async (req, res) => {
       to: email,
       subject: 'OTP for Student Login',
       text: `Your OTP is: ${otp}`,
-      html: `<p>Your OTP is: <strong>${otp}</strong></p>` // Added HTML version
     });
 
     res.redirect('/student/verifyOtp');
   } catch (err) {
     console.error('[ERROR] Sending OTP:', err);
-    // More detailed error handling
-    if (err.code === 'EAUTH') {
-      return res.status(500).send('Authentication error. Check email credentials.');
-    }
-    res.status(500).send('Failed to send OTP. Please try again later.');
+    res.status(500).send('Failed to send OTP.');
+  }
+});
+
+router.get('/verifyOtp', (req, res) => {
+  res.render('student/verifyOtp');
+});
+
+router.post('/verifyOtp', async (req, res) => {
+  const { otp } = req.body;
+
+  if (otp === req.session.otp) {
+    req.session.otp = null;
+    return res.redirect('/student/dashboard');
+  } else {
+    return res.send('Invalid OTP.');
   }
 });
 
