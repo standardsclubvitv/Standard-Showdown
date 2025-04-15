@@ -19,15 +19,29 @@ const KeyLog = require("./models/KeyLog");
 
 const app = express();
 
-// MongoDB connection
+// MongoDB connection with optimized serverless settings
 console.log("[DB] Connecting to MongoDB...");
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  bufferCommands: false, // Disable mongoose buffering for serverless
+  serverSelectionTimeoutMS: 5000 // Keep the selection process short
+})
   .then(() => {
     console.log("[DB] ✅ Connected to MongoDB");
   })
   .catch(err => {
     console.error("[DB] ❌ MongoDB connection error:", err);
   });
+
+// Handle MongoDB disconnection/reconnection for serverless environment
+mongoose.connection.on('disconnected', () => {
+  console.log('[DB] MongoDB disconnected, attempting to reconnect');
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('[DB] MongoDB reconnected');
+});
 
 // Middleware
 console.log("[MIDDLEWARE] Configuring middleware...");
@@ -37,11 +51,15 @@ app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
+// Session configuration - consider using connect-mongo for production
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "quizSecret",
     resave: false,
     saveUninitialized: false,
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 // 1 day
+    }
   })
 );
 console.log("[MIDDLEWARE] ✅ Middleware setup complete");
@@ -75,8 +93,19 @@ app.post('/student/logKeypress', async (req, res) => {
 
 console.log("[ROUTES] ✅ Routes mounted");
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`[SERVER] 🚀 Server running on http://localhost:${PORT}`);
+// For local development only - not used on Vercel
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`[SERVER] 🚀 Server running on http://localhost:${PORT}`);
+  });
+}
+
+// Error handling for serverless environment
+app.use((err, req, res, next) => {
+  console.error('[ERROR]', err);
+  res.status(500).send('Something went wrong! Please try again later.');
 });
+
+// Export the Express app for Vercel serverless deployment
+module.exports = app;
