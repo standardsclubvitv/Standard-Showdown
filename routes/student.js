@@ -51,23 +51,30 @@ async function withDbConnection(req, res, operation) {
 
 // ========== EMAIL SERVICE ==========
 
-// Create a reusable email transporter function
-async function sendEmail(to, subject, text, html) {
-  // Create a new transporter for each email send
-  // This prevents connection timeouts in serverless environments
+// Improved email service with better error handling and retry logic
+async function sendEmail(to, subject, text, html, retryCount = 0) {
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second delay between retries
+  
+  // Create a properly configured transporter
   const transporter = nodemailer.createTransport({
     service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Use TLS
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
     tls: {
-      rejectUnauthorized: false,
-    }
+      rejectUnauthorized: false, // For self-signed certificates on Render
+    },
+    debug: process.env.NODE_ENV === 'development', // Enable debug logs in development
+    logger: process.env.NODE_ENV === 'development' // Enable logger in development
   });
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"Quiz System" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     text,
@@ -75,12 +82,26 @@ async function sendEmail(to, subject, text, html) {
   };
 
   try {
+    // Verify connection configuration before sending
+    await transporter.verify();
+    
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent: ${info.messageId}`);
+    console.log(`Email sent to ${to}: ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error('[ERROR] Email sending failed:', error);
-    throw error; // Rethrow to handle in the calling function
+    console.error(`[ERROR] Email sending failed (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
+    
+    // Retry logic
+    if (retryCount < maxRetries) {
+      console.log(`Retrying email send to ${to} in ${retryDelay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      return sendEmail(to, subject, text, html, retryCount + 1);
+    }
+    
+    throw error; // Rethrow after all retries have failed
+  } finally {
+    // Close the connection regardless of the outcome
+    transporter.close();
   }
 }
 
@@ -103,6 +124,32 @@ router.post('/signup', async (req, res) => {
 
     const newStudent = new Student({ name, email, regNumber });
     await newStudent.save();
+    
+    // Send welcome email to the student
+    try {
+      const welcomeHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+          <h2 style="color: #333;">Welcome to the Quiz System</h2>
+          <p>Hello ${name},</p>
+          <p>Your account has been successfully created with registration number: <strong>${regNumber}</strong></p>
+          <p>You can now log in to take quizzes.</p>
+          <p>Thank you for joining!</p>
+        </div>
+      `;
+      
+      await sendEmail(
+        email,
+        'Welcome to the Quiz System',
+        `Hello ${name}, Your account has been successfully created with registration number: ${regNumber}. You can now log in to take quizzes.`,
+        welcomeHtml
+      );
+      
+      console.log(`Welcome email sent to ${email}`);
+    } catch (emailError) {
+      // Log but don't block signup process
+      console.error('[ERROR] Welcome email failed:', emailError);
+    }
+    
     res.redirect('/student/login');
   });
 });
@@ -127,7 +174,7 @@ router.post('/login', async (req, res) => {
     const student = await Student.findOne({ email });
     if (!student) return res.status(404).send('Email not found.');
 
-    // Generate OTP
+    // Generate a more secure OTP
     const otp = OTP.generate(6, { 
       upperCase: false, 
       specialChars: false,
@@ -139,6 +186,7 @@ router.post('/login', async (req, res) => {
     req.session.otp = otp;
     req.session.studentEmail = email;
     req.session.otpExpiry = Date.now() + (15 * 60 * 1000); // 15 minutes expiry
+    req.session.studentName = student.name; // Store student name for email personalization
     
     // Save session before proceeding
     await new Promise((resolve, reject) => {
@@ -150,56 +198,60 @@ router.post('/login', async (req, res) => {
 
     console.log(`Generated OTP for ${email}: ${otp}`);
 
-    // Check environment - works for both development and Render
-    const isDevOrTest = process.env.NODE_ENV === 'development' || 
-                         process.env.RENDER === '1' || 
-                         process.env.RENDER_EXTERNAL_URL;
-
-    // Always log OTP for debugging in non-production or if fallback is enabled
-    if (isDevOrTest || process.env.ALLOW_OTP_FALLBACK === 'true') {
+    // Always log OTP in development or if explicitly enabled
+    const isDevEnvironment = process.env.NODE_ENV === 'development';
+    const isRenderDev = process.env.RENDER === '1' && process.env.NODE_ENV !== 'production';
+    const fallbackEnabled = process.env.ALLOW_OTP_FALLBACK === 'true';
+    
+    if (isDevEnvironment || isRenderDev || fallbackEnabled) {
       console.log(`[ENV:${process.env.NODE_ENV}] OTP for ${email}: ${otp}`);
     }
 
-    // For development or when OTP fallback is explicitly allowed, bypass email
-    if ((isDevOrTest && process.env.NODE_ENV !== 'production') || 
-         process.env.ALLOW_OTP_FALLBACK === 'true') {
-      console.log(`[OTP FALLBACK] Using console OTP for ${email}: ${otp}`);
-      return res.redirect('/student/verifyOtp');
-    }
-
     try {
-      // Send email with OTP
+      // Create a more user-friendly and professional email
       const emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
           <h2 style="color: #333;">Your Login OTP</h2>
+          <p>Hello ${student.name},</p>
           <p>Here is your one-time password for login:</p>
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px;">
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
             ${otp}
           </div>
-          <p style="margin-top: 20px;">This OTP will expire in 15 minutes. If you didn't request this code, please ignore this email.</p>
+          <p>This OTP will expire in 15 minutes.</p>
+          <p>If you didn't request this code, please ignore this email or contact support.</p>
+          <p style="margin-top: 20px; font-size: 12px; color: #777;">This is an automated message, please do not reply.</p>
         </div>
       `;
       
+      // Send OTP email with retry capability
       await sendEmail(
         email,
-        'OTP for Student Login',
-        `Your OTP is: ${otp}`,
+        'Your Login OTP for Quiz System',
+        `Hello ${student.name}, Your OTP is: ${otp}. This OTP will expire in 15 minutes.`,
         emailHtml
       );
       
-      console.log(`OTP email sent to ${email}`);
-      res.redirect('/student/verifyOtp');
+      console.log(`OTP email sent successfully to ${email}`);
+      return res.redirect('/student/verifyOtp');
     } catch (emailError) {
       console.error('[ERROR] Email sending failed:', emailError);
       
-      // For production, if email fails, still allow verification page to load but log error
-      // This is helpful when testing without email credentials properly set up
-      if (process.env.ALLOW_OTP_FALLBACK === 'true') {
+      // Check if we should allow fallback to console OTP
+      if (fallbackEnabled) {
         console.log(`[FALLBACK] Using console OTP for ${email}: ${otp}`);
+        req.session.emailSendFailed = true; // Flag to show a warning on verification page
         return res.redirect('/student/verifyOtp');
       }
       
-      res.status(500).send('Failed to send OTP. Please try again later or contact support.');
+      // For Render deployment, provide additional troubleshooting info
+      if (process.env.RENDER === '1' || process.env.RENDER_EXTERNAL_URL) {
+        console.log('[RENDER DEPLOYMENT] Email sending issue detected. Check environment variables.');
+      }
+      
+      // In production without fallback, notify the user about the error
+      return res.status(500).send(
+        'Failed to send OTP email. Please verify your email address and try again later, or contact support.'
+      );
     }
   } catch (err) {
     console.error('[ERROR] Login process failed:', err);
@@ -220,7 +272,9 @@ router.get('/verifyOtp', (req, res) => {
     return res.status(400).send('OTP has expired. Please request a new one.');
   }
   
-  res.render('student/verifyOtp');
+  // Pass email send failure flag if applicable
+  const emailSendFailed = req.session.emailSendFailed || false;
+  res.render('student/verifyOtp', { emailSendFailed });
 });
 
 router.post('/verifyOtp', async (req, res) => {
@@ -247,6 +301,10 @@ router.post('/verifyOtp', async (req, res) => {
     // Clear the OTP but keep the email for the session
     req.session.otp = null;
     req.session.otpExpiry = null;
+    req.session.emailSendFailed = null; // Clear the email failure flag
+    
+    // Log successful login
+    console.log(`[LOGIN SUCCESS] Student logged in with email: ${req.session.studentEmail}`);
     
     // Save session before redirect
     try {
@@ -356,6 +414,31 @@ router.post('/submit/:quizId', studentOnly, async (req, res) => {
     await response.save();
 
     console.log(`[QUIZ SUBMIT] Response saved with ID: ${response._id}`);
+    
+    // Send confirmation email for quiz submission
+    try {
+      const confirmationHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+          <h2 style="color: #333;">Quiz Submission Confirmation</h2>
+          <p>Hello ${student.name},</p>
+          <p>Your submission for the quiz <strong>${quiz.title}</strong> has been successfully recorded.</p>
+          <p>Submission time: ${new Date().toLocaleString()}</p>
+          <p>Thank you for completing the quiz!</p>
+        </div>
+      `;
+      
+      await sendEmail(
+        student.email,
+        `Quiz Submission: ${quiz.title}`,
+        `Hello ${student.name}, Your submission for the quiz "${quiz.title}" has been successfully recorded.`,
+        confirmationHtml
+      );
+      
+      console.log(`Quiz submission confirmation email sent to ${student.email}`);
+    } catch (emailError) {
+      // Log but don't block the submission process
+      console.error('[ERROR] Quiz submission email failed:', emailError);
+    }
 
     // Fetch updated quiz list for the student dashboard
     const quizzes = await Quiz.find({});
