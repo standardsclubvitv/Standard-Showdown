@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Standards | Board</title>
+  <title>Standards | Teacher Login</title>
   <style>
     :root {
       --primary: #3B82F6;
@@ -180,13 +180,13 @@
     <div class="logo">
       <i class="fas fa-chalkboard-teacher"></i>
       <span>Standards VITv</span>
-      <span class="badge">Board</span>
+      <span class="badge">Teacher</span>
     </div>
     
-    <h2>Board Login</h2>
+    <h2>Teacher Login</h2>
+    <p class="subtitle">Enter your credentials to access the teacher dashboard</p>
     
-    
-    <form method="POST">
+    <form method="POST" action="/teacher/login">
       <div class="form-group">
         <div class="form-input-icon">
           <i class="fas fa-envelope icon"></i>
@@ -194,11 +194,18 @@
         </div>
       </div>
       
+      <div class="form-group">
+        <div class="form-input-icon">
+          <i class="fas fa-lock icon"></i>
+          <input type="password" name="password" required placeholder="Password" class="form-input" />
+        </div>
+      </div>
+      
       <button type="submit" class="submit-button">
         <i class="fas fa-sign-in-alt"></i> Login
       </button>
       
-      <% if (typeof error !== 'undefined') { %>
+      <% if (typeof error !== 'undefined' && error) { %>
         <div class="error-message">
           <i class="fas fa-exclamation-circle"></i> <%= error %>
         </div>
