@@ -74,7 +74,7 @@ async function sendEmail(to, subject, text, html, retryCount = 0) {
   });
 
   const mailOptions = {
-    from: `"Quiz System" <${process.env.EMAIL_USER}>`,
+    from: `"Standards Club VITv" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     text,
@@ -129,7 +129,7 @@ router.post('/signup', async (req, res) => {
     try {
       const welcomeHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-          <h2 style="color: #333;">Welcome to the Quiz System</h2>
+          <h2 style="color: #333;">Welcome to the Standard Club VITv</h2>
           <p>Hello ${name},</p>
           <p>Your account has been successfully created with registration number: <strong>${regNumber}</strong></p>
           <p>You can now log in to take quizzes.</p>
@@ -139,7 +139,7 @@ router.post('/signup', async (req, res) => {
       
       await sendEmail(
         email,
-        'Welcome to the Quiz System',
+        'Welcome to the Standards Club',
         `Hello ${name}, Your account has been successfully created with registration number: ${regNumber}. You can now log in to take quizzes.`,
         welcomeHtml
       );
@@ -226,7 +226,7 @@ router.post('/login', async (req, res) => {
       // Send OTP email with retry capability
       await sendEmail(
         email,
-        'Your Login OTP for Quiz System',
+        'Your Login OTP for Standards Club Portal',
         `Hello ${student.name}, Your OTP is: ${otp}. This OTP will expire in 15 minutes.`,
         emailHtml
       );
