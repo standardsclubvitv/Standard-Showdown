@@ -1,78 +1,53 @@
-// db.js
 const mongoose = require('mongoose');
-require('dotenv').config();
+const dotenv = require('dotenv');
 
-// Track connection status
+dotenv.config();
+
+// Global connection state
 let isConnected = false;
-let connectionPromise = null;
+
+// Connection options
+const connectionOptions = {
+  // Connection timeout - adjust as needed
+  serverSelectionTimeoutMS: 10000,
+  
+  // Wait for connection before proceeding
+  bufferCommands: false,
+};
 
 /**
- * Connect to MongoDB and return the connection
- * This is designed for serverless environments like Vercel
+ * Connect to MongoDB 
+ * Optimized for serverless environment
  */
-const connectToDatabase = async () => {
+async function connectToDatabase() {
   // If already connected, return the existing connection
   if (isConnected) {
     console.log('[DB] Using existing connection');
-    return mongoose.connection;
+    return;
   }
 
-  // If connection is in progress, wait for it to complete
-  if (connectionPromise) {
-    console.log('[DB] Connection in progress, waiting...');
-    return connectionPromise;
+  try {
+    console.log('[DB] Connecting to MongoDB...');
+    
+    // Ensure we have the connection string
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI environment variable is not defined');
+    }
+    
+    // Connect to MongoDB
+    await mongoose.connect(process.env.MONGODB_URI, connectionOptions);
+    
+    isConnected = true;
+    console.log('[DB] ✅ MongoDB connected successfully');
+  } catch (error) {
+    console.error('[DB] ❌ MongoDB connection error:', error);
+    
+    // In serverless, we shouldn't retry indefinitely
+    isConnected = false;
+    
+    // Throw the error to be handled by the caller
+    throw error;
   }
+}
 
-  // Initialize new connection
-  console.log('[DB] Creating new MongoDB connection...');
-  
-  // Important: Set bufferCommands to true (default) to allow queries before connection is established
-  const options = {
-    bufferCommands: true,
-    serverSelectionTimeoutMS: 10000, // 10 seconds
-  };
-
-  // Create and store promise to allow reuse during connection
-  connectionPromise = mongoose
-    .connect(process.env.MONGODB_URI, options)
-    .then(() => {
-      console.log('[DB] ✅ MongoDB connected successfully');
-      isConnected = true;
-      return mongoose.connection;
-    })
-    .catch((error) => {
-      console.error('[DB] ❌ MongoDB connection error:', error);
-      isConnected = false;
-      connectionPromise = null;
-      throw error;
-    });
-
-  return connectionPromise;
-};
-
-// Handle connection events
-mongoose.connection.on('connected', () => {
-  console.log('[DB] MongoDB connected event fired');
-  isConnected = true;
-});
-
-mongoose.connection.on('error', (err) => {
-  console.error('[DB] MongoDB connection error:', err);
-  isConnected = false;
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('[DB] MongoDB disconnected, attempting to reconnect');
-  isConnected = false;
-  connectionPromise = null;
-});
-
-// For Vercel serverless environment
-// This handles warmup and cooldown of the function
-process.on('SIGTERM', async () => {
-  console.log('[DB] SIGTERM received, closing MongoDB connection');
-  await mongoose.connection.close();
-  process.exit(0);
-});
-
-module.exports = { connectToDatabase };
+module.exports = { connectToDatabase, mongoose };
