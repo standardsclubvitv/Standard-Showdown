@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Edit Quiz</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* Base styles */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+
+    h2 {
+      color: #0066cc;
+      margin-bottom: 25px;
+      font-weight: 600;
+      border-bottom: 2px solid #0066cc;
+      padding-bottom: 10px;
+    }
+
+    /* Form Elements */
+    form {
+      background: #fff;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      margin-bottom: 30px;
+    }
+
+    input[type="text"],
+    input[type="datetime-local"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 15px;
+      transition: border-color 0.3s;
+    }
+
+    input[type="text"]:focus,
+    input[type="datetime-local"]:focus,
+    input[type="number"]:focus,
+    select:focus {
+      border-color: #0066cc;
+      outline: none;
+      box-shadow: 0 0 5px rgba(0, 102, 204, 0.2);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #444;
+    }
+
+    button {
+      background-color: #0066cc;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #0052a3;
+    }
+
+    button[type="submit"] {
+      background-color: #28a745;
+      width: 100%;
+      padding: 14px;
+      font-size: 17px;
+      margin-top: 10px;
+    }
+
+    button[type="submit"]:hover {
+      background-color: #218838;
+    }
+
+    /* Question Container */
+    #questionsContainer {
+      margin: 20px 0;
+    }
+
+    .question-block {
+      padding: 20px;
+      background: #fff;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      position: relative;
+    }
+
+    .question-block:hover {
+      border-color: #0066cc;
+      box-shadow: 0 2px 5px rgba(0, 102, 204, 0.1);
+    }
+
+    .mcq-options {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px dashed #ddd;
+    }
+
+    .remove-btn {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      margin-top: 15px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+
+    .remove-btn:hover {
+      background-color: #c82333;
+    }
+
+    /* Table styles */
+    table {
+      width: 100%;
+      margin-top: 30px;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    table,
+    th,
+    td {
+      border: 1px solid #e9ecef;
+    }
+
+    th,
+    td {
+      padding: 15px;
+      text-align: left;
+    }
+
+    th {
+      background: #0066cc;
+      color: white;
+      font-weight: 500;
+      text-transform: uppercase;
+      font-size: 14px;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+
+    tr:hover {
+      background-color: #f1f4f7;
+    }
+
+    td a {
+      color: #0066cc;
+      font-weight: bold;
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    td a:hover {
+      color: #004c99;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Edit Quiz - <%= quiz.title %>
+  </h2>
+  <form method="POST">
+    <input type="text" name="title" value="<%= quiz.title %>" placeholder="Quiz Title" required />
+    <input type="datetime-local" name="date" value="<%= new Date(quiz.date).toISOString().slice(0, 16) %>" required />
+    <input type="number" name="duration" value="<%= quiz.duration %>" placeholder="Duration (in minutes)" required />
+
+    <div id="questionsContainer">
+      <% quiz.questions.forEach((q, index)=> { %>
+        <div class="question-block">
+          <label>Question Type:</label>
+          <select name="questionType[]" onchange="toggleOptions(this)" <% if (q.type==='descriptive' ) { %>
+            value="descriptive" <% } else { %> value="mcq" <% } %>>
+                <option value="mcq">MCQ</option>
+                <option value="descriptive">Descriptive</option>
+          </select>
+
+          <input type="text" name="questionText[]" value="<%= q.question %>" placeholder="Enter question" required />
+
+          <div class="mcq-options" <% if (q.type==='descriptive' ) { %> style="display:none;" <% } %>>
+              <input type="text" name="option1[]" value="<%= q.options[0] %>" placeholder="Option 1" required />
+              <input type="text" name="option2[]" value="<%= q.options[1] %>" placeholder="Option 2" required />
+              <input type="text" name="option3[]" value="<%= q.options[2] %>" placeholder="Option 3" required />
+              <input type="text" name="option4[]" value="<%= q.options[3] %>" placeholder="Option 4" required />
+              <input type="text" name="correctAnswer[]" value="<%= q.correctAnswer %>" placeholder="Correct Answer"
+                required />
+          </div>
+
+          <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
+        </div>
+        <% }) %>
+    </div>
+
+    <button type="button" onclick="addQuestion()">Add Question</button>
+    <br><br>
+    <button type="submit">Update Quiz</button>
+  </form>
+
+  <script>
+    function addQuestion() {
+      const container = document.getElementById('questionsContainer');
+
+      const div = document.createElement('div');
+      div.className = 'question-block';
+      div.innerHTML = `
+        <label>Question Type:</label>
+        <select name="questionType[]" onchange="toggleOptions(this)">
+          <option value="mcq">MCQ</option>
+          <option value="descriptive">Descriptive</option>
+        </select>
+
+        <input type="text" name="questionText[]" placeholder="Enter question" required />
+
+        <div class="mcq-options">
+          <input type="text" name="option1[]" placeholder="Option 1" required />
+          <input type="text" name="option2[]" placeholder="Option 2" required />
+          <input type="text" name="option3[]" placeholder="Option 3" required />
+          <input type="text" name="option4[]" placeholder="Option 4" required />
+          <input type="text" name="correctAnswer[]" placeholder="Correct Answer" required />
+        </div>
+
+        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function toggleOptions(select) {
+      const block = select.parentElement;
+      const optionsDiv = block.querySelector('.mcq-options');
+      if (select.value === 'descriptive') {
+        optionsDiv.style.display = 'none';
+      } else {
+        optionsDiv.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+
+</html>

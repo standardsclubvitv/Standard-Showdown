@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= quiz.title %> | Standards Club Quiz</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="/libs/face-api.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            padding-bottom: 60px;
+        }
+
+        .quiz-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .quiz-header {
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .quiz-title {
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .quiz-info {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .timer-container {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .timer {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #dc3545;
+        }
+
+        .question-card {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .question-text {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: #212529;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background-color: #4e73df;
+            border-color: #4e73df;
+        }
+
+        .btn-primary:hover {
+            background-color: #2e59d9;
+            border-color: #2653d4;
+        }
+
+        .mcq-option {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        .mcq-option:hover {
+            background-color: #f8f9fa;
+        }
+
+        .mcq-option.selected {
+            background-color: #e8f0fe;
+            border-color: #4e73df;
+        }
+
+        .float-submit {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            background-color: #fff;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+        }
+
+        #webcam-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 999;
+            border: 2px solid #4e73df;
+            border-radius: 8px;
+            overflow: hidden;
+            width: 180px;
+            height: 135px;
+        }
+
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .detection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .detection-status {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 3px;
+            text-align: center;
+            font-size: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+
+        .detection-active {
+            border-color: #28a745;
+        }
+
+        .detection-warning {
+            border-color: #dc3545;
+        }
+
+        .full-screen-warning {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(220, 53, 69, 0.9);
+            z-index: 9999;
+            color: white;
+            text-align: center;
+            padding-top: 200px;
+        }
+
+        .instructions-modal .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .alert-warning {
+            background-color: #fff3cd;
+            border-color: #ffecb5;
+            color: #856404;
+        }
+
+        textarea.form-control {
+            min-height: 120px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Full Screen Warning -->
+    <div class="full-screen-warning" id="fullScreenWarning">
+        <div class="container">
+            <h1 class="mb-4"><i class="fas fa-exclamation-triangle"></i> Warning!</h1>
+            <h3 class="mb-4">You have exited full-screen mode or switched tabs.</h3>
+            <p class="mb-4">This is against the quiz rules and has been recorded.</p>
+            <button class="btn btn-light btn-lg" onclick="returnToFullScreen()">Return to Full Screen</button>
+        </div>
+    </div>
+
+    <!-- Instructions Modal -->
+    <div class="modal fade" id="instructionsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Quiz Instructions & Anti-Malpractice Guidelines</h5>
+                </div>
+                <div class="modal-body instructions-modal">
+                    <div class="alert alert-warning mb-4">
+                        <h5><i class="fas fa-exclamation-circle"></i> Important Notice</h5>
+                        <p>This quiz uses <strong>facial recognition</strong> and <strong>full-screen monitoring</strong> to maintain event Compentation.</p>
+                    </div>
+
+                    <h5 class="mb-3">Quiz Rules:</h5>
+                    <ul>
+                        <li>The quiz must be taken in <strong>full-screen mode</strong> at all times</li>
+                        <li>Your face must be <strong>clearly visible</strong> in the webcam throughout the quiz</li>
+                        <li>Switching tabs or applications is <strong>not permitted</strong> and will be logged</li>
+                        <li>Leaving full-screen mode will trigger a warning</li>
+                        <li>Multiple violations may result in quiz termination</li>
+                        <li>Timer will continue to run even during warnings</li>
+                        <li>Quiz will auto-submit when time expires</li>
+                    </ul>
+
+                    <h5 class="mb-3">Webcam Requirements:</h5>
+                    <ul>
+                        <li>Ensure you are in a well-lit room with your face clearly visible</li>
+                        <li>Position yourself so that your full face is visible in the camera</li>
+                        <li>Avoid wearing sunglasses or accessories that obscure your face</li>
+                        <li>Stay within view of the camera throughout the entire quiz</li>
+                    </ul>
+
+                    <h5 class="mb-3">Quiz Details:</h5>
+                    <ul>
+                        <li><strong>Quiz Title:</strong> <%= quiz.title %></li>
+                        <li><strong>Duration:</strong> <%= quiz.duration %> minutes</li>
+                        <li><strong>Total Questions:</strong> <%= quiz.questions.length %></li>
+                    </ul>
+
+                    <div class="alert alert-info mt-4">
+                        <p><strong>Note:</strong> You must grant camera permissions when prompted to proceed with the quiz.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="startQuizBtn">I Understand - Start in Full Screen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container main-content mt-4">
+        <div class="quiz-container">
+            <div class="quiz-header">
+                <h2 class="quiz-title"><%= quiz.title %></h2>
+                <div class="quiz-info">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Duration: <%= quiz.duration %> minutes</span>
+                        <span>Questions: <%= quiz.questions.length %></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="timer-container">
+                <div class="timer" id="timer">Time Remaining: <span id="time">00:00:00</span></div>
+            </div>
+
+            <form id="quizForm" action="/student/submit/<%= quiz._id %>" method="POST">
+                <% quiz.questions.forEach((question, index) => { %>
+                <div class="question-card">
+                    <div class="question-text">
+                        <span class="badge bg-primary me-2"><%= index + 1 %></span>
+                        <%= question.question %>
+                    </div>
+                    
+                    <% if(question.type === 'mcq') { %>
+                        <div class="mcq-options">
+                            <% question.options.forEach((option, optIndex) => { %>
+                                <div class="mcq-option" onclick="selectOption(this, '<%= index %>')">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="answers[<%= index %>]" value="<%= optIndex %>" id="option<%= index %>_<%= optIndex %>">
+                                        <label class="form-check-label" for="option<%= index %>_<%= optIndex %>">
+                                            <%= option %>
+                                        </label>
+                                    </div>
+                                </div>
+                            <% }) %>
+                        </div>
+                    <% } else { %>
+                        <div class="form-group">
+                            <textarea class="form-control" name="answers[<%= index %>]" rows="4" placeholder="Type your answer here..."></textarea>
+                        </div>
+                    <% } %>
+                </div>
+                <% }) %>
+
+                <div class="float-submit">
+                    <div class="container">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-outline-secondary" id="reviewBtn">Review Answers</button>
+                            <button type="submit" class="btn btn-primary">Submit Quiz</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Webcam Container -->
+    <div id="webcam-container">
+        <video id="webcam" autoplay muted></video>
+        <div class="detection-overlay">
+            <div class="detection-status">Initializing...</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+
+    <script>
+        // Quiz data
+        const quizDuration = <%= quiz.duration %> * 60; // convert to seconds
+        let remainingTime = quizDuration;
+        let timerInterval;
+        let faceCheckInterval;
+        let tabSwitchCount = 0;
+        let fullScreenExitCount = 0;
+        let faceDetectionActive = false;
+        let lastFaceDetectionTime = Date.now();
+        let quizStarted = false;
+        
+        // DOM elements
+        const timerElement = document.getElementById('time');
+        const instructionsModal = new bootstrap.Modal(document.getElementById('instructionsModal'));
+        const startQuizBtn = document.getElementById('startQuizBtn');
+        const webcamElement = document.getElementById('webcam');
+        const detectionOverlay = document.querySelector('.detection-overlay');
+        const detectionStatus = document.querySelector('.detection-status');
+        const fullScreenWarning = document.getElementById('fullScreenWarning');
+        const reviewBtn = document.getElementById('reviewBtn');
+        const quizForm = document.getElementById('quizForm');
+        
+        // Show instructions modal on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            instructionsModal.show();
+            initFaceAPI();
+        });
+        
+        // Initialize face-api.js
+        async function initFaceAPI() {
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+                await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+                await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+                
+                detectionStatus.textContent = 'Models loaded';
+            } catch (error) {
+                console.error('Error loading face detection models:', error);
+                detectionStatus.textContent = 'Error loading models';
+            }
+        }
+        
+        // Start webcam stream
+        async function startWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                webcamElement.srcObject = stream;
+                
+                webcamElement.addEventListener('play', () => {
+                    startFaceDetection();
+                    detectionStatus.textContent = 'Detecting...';
+                });
+            } catch (error) {
+                console.error('Error accessing webcam:', error);
+                detectionStatus.textContent = 'Camera access denied';
+                alert('Camera access is required to take this quiz. Please refresh and allow camera access.');
+            }
+        }
+        
+        // Start face detection loop
+        function startFaceDetection() {
+            faceCheckInterval = setInterval(async () => {
+                if (!webcamElement.paused && !webcamElement.ended) {
+                    try {
+                        const detections = await faceapi.detectAllFaces(
+                            webcamElement, 
+                            new faceapi.TinyFaceDetectorOptions()
+                        );
+                        
+                        if (detections.length === 0) {
+                            detectionOverlay.classList.remove('detection-active');
+                            detectionOverlay.classList.add('detection-warning');
+                            detectionStatus.textContent = 'No face detected!';
+                            faceDetectionActive = false;
+                            
+                            // If face not detected for more than 5 seconds, log it
+                            if (Date.now() - lastFaceDetectionTime > 5000) {
+                                logMalpractice('face_missing', 'Face not detected for 5+ seconds');
+                            }
+                        } else if (detections.length > 1) {
+                            detectionOverlay.classList.remove('detection-active');
+                            detectionOverlay.classList.add('detection-warning');
+                            detectionStatus.textContent = 'Multiple faces!';
+                            faceDetectionActive = false;
+                            logMalpractice('multiple_faces', 'Multiple faces detected');
+                        } else {
+                            detectionOverlay.classList.add('detection-active');
+                            detectionOverlay.classList.remove('detection-warning');
+                            detectionStatus.textContent = 'Face detected';
+                            faceDetectionActive = true;
+                            lastFaceDetectionTime = Date.now();
+                        }
+                    } catch (error) {
+                        console.error('Face detection error:', error);
+                    }
+                }
+            }, 1000);
+        }
+        
+        // Start quiz in full screen
+        startQuizBtn.addEventListener('click', () => {
+            instructionsModal.hide();
+            enterFullScreen();
+            startWebcam();
+            startTimer();
+            quizStarted = true;
+        });
+        
+        // Enter full screen mode
+        function enterFullScreen() {
+            const docElement = document.documentElement;
+            
+            if (docElement.requestFullscreen) {
+                docElement.requestFullscreen();
+            } else if (docElement.mozRequestFullScreen) {
+                docElement.mozRequestFullScreen();
+            } else if (docElement.webkitRequestFullscreen) {
+                docElement.webkitRequestFullscreen();
+            } else if (docElement.msRequestFullscreen) {
+                docElement.msRequestFullscreen();
+            }
+        }
+        
+        // Return to full screen after warning
+        function returnToFullScreen() {
+            enterFullScreen();
+            fullScreenWarning.style.display = 'none';
+        }
+        
+        // Monitor full screen changes
+        document.addEventListener('fullscreenchange', handleFullScreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullScreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullScreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullScreenChange);
+        
+        function handleFullScreenChange() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && 
+                !document.mozFullScreenElement && !document.msFullscreenElement && quizStarted) {
+                
+                fullScreenExitCount++;
+                fullScreenWarning.style.display = 'block';
+                logMalpractice('fullscreen_exit', 'Exited full screen mode');
+            }
+        }
+        
+        // Monitor tab visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && quizStarted) {
+                tabSwitchCount++;
+                logMalpractice('tab_switch', 'Switched away from quiz tab');
+            }
+        });
+        
+        // Timer function
+        function startTimer() {
+            updateTimerDisplay();
+            
+            timerInterval = setInterval(() => {
+                remainingTime--;
+                
+                if (remainingTime <= 0) {
+                    clearInterval(timerInterval);
+                    submitQuiz();
+                }
+                
+                updateTimerDisplay();
+            }, 1000);
+        }
+        
+        // Update timer display
+        function updateTimerDisplay() {
+            const hours = Math.floor(remainingTime / 3600);
+            const minutes = Math.floor((remainingTime % 3600) / 60);
+            const seconds = remainingTime % 60;
+            
+            timerElement.textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (remainingTime <= 300) { // 5 minutes left
+                timerElement.classList.add('text-danger');
+                timerElement.classList.add('fw-bold');
+            }
+        }
+        
+        // Log malpractice incidents
+        function logMalpractice(type, description) {
+            console.log(`Malpractice detected: ${type} - ${description}`);
+            // In a real implementation, you would send this to the server
+            // via AJAX to be logged in the database
+            
+            const logData = {
+                quizId: '<%= quiz._id %>',
+                timestamp: new Date().toISOString(),
+                type: type,
+                description: description
+            };
+            
+            // Example of how you might send this to server
+            /*
+            fetch('/student/log-malpractice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(logData)
+            });
+            */
+        }
+        
+        // Auto-submit quiz when time expires
+        function submitQuiz() {
+            quizForm.submit();
+        }
+        
+        // MCQ option selection
+        function selectOption(element, questionIndex) {
+            // Clear previous selections for this question
+            const options = document.querySelectorAll(`.mcq-option input[name="answers[${questionIndex}]"]`);
+            options.forEach(opt => {
+                opt.closest('.mcq-option').classList.remove('selected');
+            });
+            
+            // Select the clicked option
+            element.classList.add('selected');
+            const input = element.querySelector('input');
+            input.checked = true;
+        }
+        
+        // Review answers button - FIXED CODE HERE
+        reviewBtn.addEventListener('click', () => {
+            const unansweredQuestions = [];
+            let isAnswered;
+            
+            // Check each question
+            <% quiz.questions.forEach((question, index) => { %>
+                <% if(question.type === 'mcq') { %>
+                    isAnswered = document.querySelector(`input[name="answers[<%= index %>]"]:checked`);
+                    if (!isAnswered) {
+                        unansweredQuestions.push(<%= index + 1 %>);
+                    }
+                <% } else { %>
+                    isAnswered = document.querySelector(`textarea[name="answers[<%= index %>]"]`).value;
+                    if (!isAnswered.trim()) {
+                        unansweredQuestions.push(<%= index + 1 %>);
+                    }
+                <% } %>
+            <% }); %>
+            
+            if (unansweredQuestions.length > 0) {
+                alert(`You have not answered question(s): ${unansweredQuestions.join(', ')}`);
+            } else {
+                alert('All questions have been answered. You can submit when ready.');
+            }
+        });
+        
+        // Form submission
+        quizForm.addEventListener('submit', function(e) {
+            if (!confirm('Are you sure you want to submit your quiz? This action cannot be undone.')) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Add malpractice logs to the form submission
+            const malpracticeInput = document.createElement('input');
+            malpracticeInput.type = 'hidden';
+            malpracticeInput.name = 'malpractice';
+            malpracticeInput.value = JSON.stringify({
+                tabSwitches: tabSwitchCount,
+                fullScreenExits: fullScreenExitCount
+            });
+            
+            this.appendChild(malpracticeInput);
+            return true;
+        });
+        
+        // Prevent right-click
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        // Prevent keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Prevent Ctrl+C, Ctrl+V, F12, etc.
+            if ((e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'u')) || 
+                e.key === 'F12' || e.key === 'PrintScreen') {
+                e.preventDefault();
+                logMalpractice('keyboard_shortcut', `Attempted use of ${e.ctrlKey ? 'Ctrl+' : ''}${e.key}`);
+                return false;
+            }
+        });
+    </script>
+</body>
+</html>

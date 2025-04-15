@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Members Sign Up</title>
+  <style>
+    :root {
+      --primary: #3B82F6;
+      --primary-dark: #1D4ED8;
+      --secondary: #34D399;
+      --text-dark: #1F2937;
+      --text-light: #F9FAFB;
+      --background: #F3F4F6;
+      --card-bg: #FFFFFF;
+      --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --input-border: #E5E7EB;
+      --error: #EF4444;
+      --success: #10B981;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: var(--background);
+      color: var(--text-dark);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+    
+    .container {
+      max-width: 450px;
+      width: 100%;
+      padding: 2.5rem;
+      background-color: var(--card-bg);
+      border-radius: 1rem;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+    
+    .logo {
+      margin-bottom: 1.5rem;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    
+    h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      color: var(--text-dark);
+    }
+    
+    .subtitle {
+      color: #6B7280;
+      margin-bottom: 2rem;
+      font-size: 1rem;
+    }
+    
+    .form-group {
+      margin-bottom: 1.25rem;
+      text-align: left;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-dark);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--input-border);
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      outline: none;
+    }
+    
+    .form-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+    
+    .form-input::placeholder {
+      color: #9CA3AF;
+    }
+    
+    .form-input-icon {
+      position: relative;
+    }
+    
+    .form-input-icon .icon {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      left: 1rem;
+      color: #9CA3AF;
+    }
+    
+    .form-input-icon input {
+      padding-left: 2.5rem;
+    }
+    
+    .submit-button {
+      display: inline-block;
+      background-color: var(--primary);
+      color: var(--text-light);
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    
+    .submit-button:hover {
+      background-color: var(--primary-dark);
+    }
+    
+    .login-link {
+      margin-top: 1.5rem;
+      color: #6B7280;
+      font-size: 0.875rem;
+    }
+    
+    .login-link a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    
+    .login-link a:hover {
+      text-decoration: underline;
+    }
+    
+    .back-link {
+      margin-top: 1.5rem;
+      display: block;
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 0.875rem;
+    }
+    
+    .back-link:hover {
+      text-decoration: underline;
+    }
+    
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 1.5rem 0;
+    }
+    
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background-color: var(--input-border);
+    }
+    
+    .divider-text {
+      padding: 0 1rem;
+      color: #6B7280;
+      font-size: 0.875rem;
+    }
+    
+    @media (max-width: 640px) {
+      .container {
+        padding: 2rem 1.5rem;
+      }
+    }
+  </style>
+  <!-- Including Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <i class="fas fa-graduation-cap"></i>
+      <span>Standards Club VITv</span>
+    </div>
+    
+    <h2>Create Your Account</h2>
+
+    
+    <form action="/student/signup" method="POST">
+      <div class="form-group">
+        <div class="form-input-icon">
+          <i class="fas fa-user icon"></i>
+          <input type="text" name="name" placeholder="Full Name" required class="form-input" />
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <div class="form-input-icon">
+          <i class="fas fa-envelope icon"></i>
+          <input type="email" name="email" placeholder="Email Address" required class="form-input" />
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <div class="form-input-icon">
+          <i class="fas fa-id-card icon"></i>
+          <input type="text" name="regNumber" placeholder="Registration Number" required class="form-input" />
+        </div>
+      </div>
+      
+      <button type="submit" class="submit-button">
+        <i class="fas fa-user-plus"></i> Create Account
+      </button>
+    </form>
+    
+    <p class="login-link">
+      Already have an account? <a href="/student/login">Log in here</a>
+    </p>
+    
+    <a href="/" class="back-link">
+      <i class="fas fa-arrow-left"></i> Back to Home
+    </a>
+  </div>
+</body>
+</html>

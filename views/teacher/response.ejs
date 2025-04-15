@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Quiz Responses</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<style>
+    /* Base styles */
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f8f9fa;
+    }
+
+    h2,
+    h3 {
+        color: #0066cc;
+        margin-bottom: 20px;
+        font-weight: 600;
+    }
+
+    h2 {
+        border-bottom: 2px solid #0066cc;
+        padding-bottom: 10px;
+    }
+
+    h3 {
+        margin-top: 30px;
+        font-size: 1.3em;
+    }
+
+    /* Table styles */
+    table {
+        width: 100%;
+        margin-top: 20px;
+        border-collapse: collapse;
+        background: white;
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    table,
+    th,
+    td {
+        border: 1px solid #e9ecef;
+    }
+
+    th,
+    td {
+        padding: 15px;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    th {
+        background: #0066cc;
+        color: white;
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 14px;
+    }
+
+    tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    tr:hover {
+        background-color: #f1f4f7;
+    }
+
+    /* Answer styling */
+    td strong {
+        color: #0066cc;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 8px;
+    }
+
+    td strong:first-child {
+        margin-top: 0;
+    }
+
+    /* Malpractice log styling */
+    ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+
+    li {
+        margin-bottom: 5px;
+        color: #d9534f;
+    }
+
+    td p {
+        margin: 0;
+        color: #28a745;
+        font-style: italic;
+    }
+
+    /* Button and link styling */
+    .btn {
+        display: inline-block;
+        margin-right: 10px;
+        margin-top: 20px;
+        color: white;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 10px 15px;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border: none;
+    }
+
+    .btn-primary {
+        background-color: #0066cc;
+    }
+
+    .btn-primary:hover {
+        background-color: #0052a3;
+    }
+
+    .btn-success {
+        background-color: #28a745;
+    }
+
+    .btn-success:hover {
+        background-color: #218838;
+    }
+
+    .actions-container {
+        display: flex;
+        align-items: center;
+        margin-top: 20px;
+    }
+
+    a {
+        display: inline-block;
+        color: #0066cc;
+        text-decoration: none;
+        font-weight: 500;
+        padding: 10px 15px;
+        background-color: #e9f0f9;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+    }
+
+    a:hover {
+        background-color: #0066cc;
+        color: white;
+        text-decoration: none;
+    }
+
+    /* Responsive adjustments */
+    @media screen and (max-width: 768px) {
+        table {
+            display: block;
+            overflow-x: auto;
+        }
+
+        th,
+        td {
+            padding: 10px;
+        }
+        
+        .actions-container {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .btn, a {
+            margin-bottom: 10px;
+        }
+    }
+</style>
+
+<body>
+    <h2>Responses for: <%= quiz.title %></h2>
+    <h3>Student Responses</h3>
+    <table id="responsesTable">
+        <thead>
+            <tr>
+                <th>Student Name</th>
+                <th>Answer</th>
+                <th>Malpractice Log</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% responses.forEach(response => { %>
+                <tr>
+                    <td><%= response.student.name %></td>
+                    <td>
+                        <% response.answers.forEach((answer, index) => { %>
+                            <strong>Q<%= index + 1 %>:</strong> <%= answer %><br>
+                        <% }) %>
+                    </td>
+                    <td>
+                        <% if (response.malpracticeLog && response.malpracticeLog.length > 0) { %>
+                            <ul>
+                                <% response.malpracticeLog.forEach(log => { %>
+                                    <li><%= log %></li>
+                                <% }) %>
+                            </ul>
+                        <% } else { %>
+                            <p>No malpractice detected.</p>
+                        <% } %>
+                    </td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+    
+    <div class="actions-container">
+        <button class="btn btn-success" onclick="exportToExcel()">Download Excel</button>
+        <a href="/teacher/dashboard">Back to Dashboard</a>
+    </div>
+
+    <script>
+        function exportToExcel() {
+            // Prepare data for Excel
+            const data = [];
+            
+            // Add header row
+            data.push(['Student Name', 'Answers', 'Malpractice Log']);
+            
+            // Get all rows from the table
+            const rows = document.querySelectorAll('#responsesTable tbody tr');
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const studentName = cells[0].textContent.trim();
+                
+                // Format answers - replace <br> with line breaks for Excel
+                let answers = cells[1].innerHTML;
+                answers = answers.replace(/<strong>Q\d+:<\/strong>/g, '');
+                answers = answers.replace(/<br>/g, ' | ');
+                answers = answers.trim();
+                
+                // Format malpractice log
+                let malpracticeLog = '';
+                if (cells[2].querySelector('ul')) {
+                    const items = cells[2].querySelectorAll('li');
+                    items.forEach((item, index) => {
+                        malpracticeLog += item.textContent.trim();
+                        if (index < items.length - 1) {
+                            malpracticeLog += ' | ';
+                        }
+                    });
+                } else {
+                    malpracticeLog = 'No malpractice detected.';
+                }
+                
+                // Add row to data
+                data.push([studentName, answers, malpracticeLog]);
+            });
+            
+            // Create worksheet
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Quiz Responses');
+            
+            // Generate file name
+            const quizTitle = document.querySelector('h2').textContent.replace('Responses for: ', '').trim();
+            const fileName = `${quizTitle}_Responses.xlsx`;
+            
+            // Save the file
+            XLSX.writeFile(wb, fileName);
+        }
+    </script>
+</body>
+
+</html>
