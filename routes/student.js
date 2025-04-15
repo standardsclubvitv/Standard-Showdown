@@ -224,6 +224,11 @@ router.get('/verifyOtp', (req, res) => {
 });
 
 router.post('/verifyOtp', async (req, res) => {
+  console.log("OTP verification attempt");
+  console.log("Body:", req.body);
+  console.log("Session exists:", !!req.session);
+  console.log("Session OTP exists:", !!req.session?.otp);
+  console.log("OTP Expiry:", req.session?.otpExpiry);
   const { otp } = req.body;
 
   // Validate we have a session and OTP stored
