@@ -6,6 +6,7 @@ const KeyLog = require('../models/KeyLog');
 const Response = require('../models/Response');
 const OTP = require('otp-generator');
 const dotenv = require('dotenv');
+const nodemailer = require('nodemailer');
 const { connectToDatabase } = require('../db');
 
 dotenv.config();
@@ -54,6 +55,41 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+// ========== EMAIL SERVICE ==========
+
+// Create a reusable email transporter function
+async function sendEmail(to, subject, text, html) {
+  // Create a new transporter for each email send
+  // This prevents connection timeouts in serverless environments
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    }
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    subject,
+    text,
+    html
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Email sent: ${info.messageId}`);
+    return true;
+  } catch (error) {
+    console.error('[ERROR] Email sending failed:', error);
+    throw error; // Rethrow to handle in the calling function
+  }
+}
+
 // ========== LOGIN WITH OTP ==========
 
 router.get('/login', (req, res) => {
@@ -85,6 +121,7 @@ router.post('/login', async (req, res) => {
     // Store in session
     req.session.otp = otp;
     req.session.studentEmail = email;
+    req.session.otpExpiry = Date.now() + (15 * 60 * 1000); // 15 minutes expiry
     
     // Save session before proceeding
     await new Promise((resolve, reject) => {
@@ -97,50 +134,43 @@ router.post('/login', async (req, res) => {
     console.log(`Generated OTP for ${email}: ${otp}`);
 
     // For testing in development - always output OTP to console
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV === 'development') {
       console.log(`[DEV] OTP for ${email}: ${otp}`);
       return res.redirect('/student/verifyOtp');
     }
 
-    // In production, send email
     try {
-      // Since we're on Vercel, use a simpler approach for sending email
-      // Create transporter with each request to avoid connection timeouts
-      const nodemailer = require('nodemailer');
-      
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        }
-      });
-
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'OTP for Student Login',
-        text: `Your OTP is: ${otp}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-            <h2 style="color: #333;">Your Login OTP</h2>
-            <p>Here is your one-time password for login:</p>
-            <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px;">
-              ${otp}
-            </div>
-            <p style="margin-top: 20px;">This OTP will expire in 15 minutes. If you didn't request this code, please ignore this email.</p>
+      // Send email with OTP
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+          <h2 style="color: #333;">Your Login OTP</h2>
+          <p>Here is your one-time password for login:</p>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px;">
+            ${otp}
           </div>
-        `
-      };
-
-      await transporter.sendMail(mailOptions);
+          <p style="margin-top: 20px;">This OTP will expire in 15 minutes. If you didn't request this code, please ignore this email.</p>
+        </div>
+      `;
+      
+      await sendEmail(
+        email,
+        'OTP for Student Login',
+        `Your OTP is: ${otp}`,
+        emailHtml
+      );
+      
       console.log(`OTP email sent to ${email}`);
       res.redirect('/student/verifyOtp');
     } catch (emailError) {
       console.error('[ERROR] Email sending failed:', emailError);
+      
+      // For production, if email fails, still allow verification page to load but log error
+      // This is helpful when testing on Vercel without email credentials properly set up
+      if (process.env.ALLOW_OTP_FALLBACK === 'true') {
+        console.log(`[FALLBACK] Using console OTP for ${email}: ${otp}`);
+        return res.redirect('/student/verifyOtp');
+      }
+      
       res.status(500).send('Failed to send OTP. Please try again later or contact support.');
     }
   } catch (err) {
@@ -154,6 +184,14 @@ router.get('/verifyOtp', (req, res) => {
   if (!req.session || !req.session.otp) {
     return res.redirect('/student/login');
   }
+  
+  // Check if OTP has expired
+  if (req.session.otpExpiry && Date.now() > req.session.otpExpiry) {
+    req.session.otp = null;
+    req.session.otpExpiry = null;
+    return res.status(400).send('OTP has expired. Please request a new one.');
+  }
+  
   res.render('student/verifyOtp');
 });
 
@@ -164,10 +202,18 @@ router.post('/verifyOtp', async (req, res) => {
   if (!req.session || !req.session.otp) {
     return res.status(400).send('Session expired. Please try logging in again.');
   }
+  
+  // Check if OTP has expired
+  if (req.session.otpExpiry && Date.now() > req.session.otpExpiry) {
+    req.session.otp = null;
+    req.session.otpExpiry = null;
+    return res.status(400).send('OTP has expired. Please request a new one.');
+  }
 
   if (otp === req.session.otp) {
     // Clear the OTP but keep the email for the session
     req.session.otp = null;
+    req.session.otpExpiry = null;
     
     // Save session before redirect
     try {
