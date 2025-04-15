@@ -7,8 +7,15 @@ const session = require("express-session");
 const bodyParser = require("body-parser");
 const path = require("path");
 const MongoStore = require('connect-mongo');
+const { connectToDatabase } = require('./db');
 
 console.log("[INIT] Required modules loaded");
+
+connectToDatabase().catch(err => {
+  console.error('[DB] Initial connection attempt failed:', err);
+  // Allow app to start anyway, it will retry connection later
+});
+
 
 // Import route files
 const teacherRoutes = require("./routes/teacher");
@@ -52,7 +59,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-// Session configuration - consider using connect-mongo for production
+// Session configuration with MongoDB store
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your_fallback_secret',
   resave: false,
