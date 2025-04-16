@@ -10,7 +10,8 @@ const quizSchema = new mongoose.Schema({
     question: String,
     options: [String], // for MCQs
     correctAnswer: String // optional
-  }]
+  }],
+  acceptingResponses: { type: Boolean, default: true } // Added field to control response acceptance
 });
 
 module.exports = mongoose.model("Quiz", quizSchema);
