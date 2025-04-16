@@ -227,57 +227,79 @@
 
     <script>
         function exportToExcel() {
-            // Prepare data for Excel
-            const data = [];
-            
-            // Add header row
-            data.push(['Student Name', 'Registration Number', 'Answers', 'Malpractice Log']);
-            
-            // Get all rows from the table
-            const rows = document.querySelectorAll('#responsesTable tbody tr');
-            
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                const studentName = cells[0].textContent.trim();
-                const regNumber = cells[1].textContent.trim();
+            try {
+                // Prepare data for Excel
+                const data = [];
                 
-                // Format answers - replace <br> with line breaks for Excel
-                let answers = cells[2].innerHTML;
-                answers = answers.replace(/<strong>Q\d+:<\/strong>/g, '');
-                answers = answers.replace(/<br>/g, ' | ');
-                answers = answers.trim();
+                // Add header row
+                data.push(['Student Name', 'Registration Number', 'Answers', 'Malpractice Log']);
                 
-                // Format malpractice log
-                let malpracticeLog = '';
-                if (cells[3].querySelector('ul')) {
-                    const items = cells[3].querySelectorAll('li');
-                    items.forEach((item, index) => {
-                        malpracticeLog += item.textContent.trim();
-                        if (index < items.length - 1) {
-                            malpracticeLog += ' | ';
-                        }
-                    });
-                } else {
-                    malpracticeLog = 'No malpractice detected.';
-                }
+                // Get all rows from the table
+                const rows = document.querySelectorAll('#responsesTable tbody tr');
                 
-                // Add row to data
-                data.push([studentName, regNumber, answers, malpracticeLog]);
-            });
-            
-            // Create worksheet
-            const ws = XLSX.utils.aoa_to_sheet(data);
-            
-            // Create workbook
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Quiz Responses');
-            
-            // Generate file name
-            const quizTitle = document.querySelector('h2').textContent.replace('Responses for: ', '').trim();
-            const fileName = `${quizTitle}_Responses.xlsx`;
-            
-            // Save the file
-            XLSX.writeFile(wb, fileName);
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    const studentName = cells[0].textContent.trim();
+                    const regNumber = cells[1].textContent.trim();
+                    
+                    // Format answers - get the raw text content and format it
+                    const answerCell = cells[2];
+                    let answers = '';
+                    
+                    // Process each question/answer pair
+                    const answerText = answerCell.innerText;
+                    const answerLines = answerText.split('\n').filter(line => line.trim() !== '');
+                    
+                    answers = answerLines.join(' | ');
+                    
+                    // Format malpractice log
+                    let malpracticeLog = '';
+                    if (cells[3].querySelector('ul')) {
+                        const items = cells[3].querySelectorAll('li');
+                        const logItems = [];
+                        
+                        items.forEach(item => {
+                            logItems.push(item.textContent.trim());
+                        });
+                        
+                        malpracticeLog = logItems.join(' | ');
+                    } else {
+                        malpracticeLog = 'No malpractice detected.';
+                    }
+                    
+                    // Add row to data
+                    data.push([studentName, regNumber, answers, malpracticeLog]);
+                });
+                
+                // Create worksheet with column widths
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                
+                // Set column widths
+                const colWidths = [
+                    { wch: 25 },  // Student Name
+                    { wch: 20 },  // Registration Number
+                    { wch: 60 },  // Answers
+                    { wch: 40 }   // Malpractice Log
+                ];
+                
+                ws['!cols'] = colWidths;
+                
+                // Create workbook
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Quiz Responses');
+                
+                // Generate file name
+                const quizTitle = document.querySelector('h2').textContent.replace('Responses for: ', '').trim();
+                const fileName = `${quizTitle}_Responses.xlsx`.replace(/[\/\\:*?"<>|]/g, '_');
+                
+                // Save the file
+                XLSX.writeFile(wb, fileName);
+                
+                console.log('Excel file exported successfully');
+            } catch (error) {
+                console.error('Error exporting to Excel:', error);
+                alert('There was an error exporting to Excel. Please try again.');
+            }
         }
     </script>
 </body>
