@@ -348,7 +348,34 @@ router.get("/download/:quizId", teacherOnly, async (req, res) => {
 });
 
 // ========== LOGOUT ==========
-
+// POST: Toggle quiz response acceptance
+router.post("/toggle-responses/:id", teacherOnly, async (req, res) => {
+  await withDbConnection(req, res, async () => {
+    try {
+      // Find the quiz by ID
+      const quiz = await Quiz.findById(req.params.id);
+      
+      if (!quiz) {
+        return res.status(404).render("error", { message: "Quiz not found" });
+      }
+      
+      // Toggle the acceptingResponses property
+      quiz.acceptingResponses = !quiz.acceptingResponses;
+      
+      // Save the updated quiz
+      await quiz.save();
+      
+      console.log(`[QUIZ] Response acceptance toggled for: ${quiz.title}. New status: ${quiz.acceptingResponses ? 'Open' : 'Closed'}`);
+      
+      // Redirect back to dashboard with a success message
+      const status = quiz.acceptingResponses ? 'opened' : 'closed';
+      res.redirect(`/teacher/dashboard?responsesToggled=${status}`);
+    } catch (error) {
+      console.error(`[ERROR] Failed to toggle responses for quiz (ID: ${req.params.id}):`, error);
+      res.status(500).render("error", { message: "Failed to toggle quiz response status" });
+    }
+  });
+});
 // Teacher Logout (GET method)
 router.get('/logout', (req, res) => {
   req.session.destroy((err) => {
