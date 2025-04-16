@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <link rel="icon" type="image/png" href="https://standardsclubvitv.github.io/image-api/images/logo.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Standards | Dashboard</title>
   <style>
@@ -216,6 +215,35 @@
       font-weight: 500;
     }
     
+    .closed-badge {
+      display: inline-block;
+      background-color: var(--danger);
+      color: var(--text-light);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    
+    .response-status {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+    
+    .response-status.open {
+      background-color: var(--success);
+      color: var(--text-light);
+    }
+    
+    .response-status.closed {
+      background-color: var(--danger);
+      color: var(--text-light);
+    }
+    
     .empty-state {
       text-align: center;
       padding: 3rem 1rem;
@@ -313,16 +341,43 @@
             <tr>
               <th>Quiz Title</th>
               <th>Date</th>
+              <th>Status</th>
               <th>Action</th>
             </tr>
             <% quizzes.forEach(quiz => { %>
               <tr>
-                <td class="quiz-title"><%= quiz.title %></td>
+                <td class="quiz-title">
+                  <%= quiz.title %>
+                  <!-- Add response status indicator -->
+                  <span class="response-status <%= quiz.acceptingResponses ? 'open' : 'closed' %>">
+                    <i class="fas <%= quiz.acceptingResponses ? 'fa-lock-open' : 'fa-lock' %>"></i>
+                    <%= quiz.acceptingResponses ? 'Open' : 'Closed' %>
+                  </span>
+                </td>
                 <td class="quiz-date"><%= new Date(quiz.date).toLocaleDateString() %></td>
+                <td>
+                  <% if (student.responses.includes(quiz._id)) { %>
+                    <span class="submitted-badge">
+                      <i class="fas fa-check-circle"></i> Completed
+                    </span>
+                  <% } else if (!quiz.acceptingResponses) { %>
+                    <span class="closed-badge">
+                      <i class="fas fa-lock"></i> Not Available
+                    </span>
+                  <% } else { %>
+                    <span class="response-status open">
+                      <i class="fas fa-pen"></i> Pending
+                    </span>
+                  <% } %>
+                </td>
                 <td class="quiz-action">
                   <% if (student.responses.includes(quiz._id)) { %>
                     <span class="submitted-badge">
                       <i class="fas fa-check-circle"></i> Completed
+                    </span>
+                  <% } else if (!quiz.acceptingResponses) { %>
+                    <span class="closed-badge">
+                      <i class="fas fa-lock"></i> Closed
                     </span>
                   <% } else { %>
                     <a href="/student/quiz/<%= quiz._id %>" class="take-quiz-link">
