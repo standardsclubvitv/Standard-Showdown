@@ -3,7 +3,7 @@
 
 <head>
     <title>Quiz Responses</title>
-  <link rel="icon" type="image/png" href="https://standardsclubvitv.github.io/image-api/images/logo.png">
+    <link rel="icon" type="image/png" href="https://standardsclubvitv.github.io/image-api/images/logo.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
@@ -189,6 +189,7 @@
         <thead>
             <tr>
                 <th>Student Name</th>
+                <th>Registration Number</th>
                 <th>Answer</th>
                 <th>Malpractice Log</th>
             </tr>
@@ -197,6 +198,7 @@
             <% responses.forEach(response => { %>
                 <tr>
                     <td><%= response.student.name %></td>
+                    <td><%= response.student.regNumber %></td>
                     <td>
                         <% response.answers.forEach((answer, index) => { %>
                             <strong>Q<%= index + 1 %>:</strong> <%= answer %><br>
@@ -229,7 +231,7 @@
             const data = [];
             
             // Add header row
-            data.push(['Student Name', 'Answers', 'Malpractice Log']);
+            data.push(['Student Name', 'Registration Number', 'Answers', 'Malpractice Log']);
             
             // Get all rows from the table
             const rows = document.querySelectorAll('#responsesTable tbody tr');
@@ -237,17 +239,18 @@
             rows.forEach(row => {
                 const cells = row.querySelectorAll('td');
                 const studentName = cells[0].textContent.trim();
+                const regNumber = cells[1].textContent.trim();
                 
                 // Format answers - replace <br> with line breaks for Excel
-                let answers = cells[1].innerHTML;
+                let answers = cells[2].innerHTML;
                 answers = answers.replace(/<strong>Q\d+:<\/strong>/g, '');
                 answers = answers.replace(/<br>/g, ' | ');
                 answers = answers.trim();
                 
                 // Format malpractice log
                 let malpracticeLog = '';
-                if (cells[2].querySelector('ul')) {
-                    const items = cells[2].querySelectorAll('li');
+                if (cells[3].querySelector('ul')) {
+                    const items = cells[3].querySelectorAll('li');
                     items.forEach((item, index) => {
                         malpracticeLog += item.textContent.trim();
                         if (index < items.length - 1) {
@@ -259,7 +262,7 @@
                 }
                 
                 // Add row to data
-                data.push([studentName, answers, malpracticeLog]);
+                data.push([studentName, regNumber, answers, malpracticeLog]);
             });
             
             // Create worksheet
