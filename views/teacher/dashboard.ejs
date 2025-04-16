@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <link rel="icon" type="image/png" href="https://standardsclubvitv.github.io/image-api/images/logo.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Board Dashboard</title>
   <style>
@@ -268,6 +267,69 @@
       margin-bottom: 1.5rem;
     }
     
+    /* New styles for response toggle status and buttons */
+    .response-status {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+    
+    .response-status.open {
+      background-color: var(--success);
+      color: var(--text-light);
+    }
+    
+    .response-status.closed {
+      background-color: var(--danger);
+      color: var(--text-light);
+    }
+    
+    .toggle-form {
+      display: inline-block;
+    }
+    
+    .toggle-button {
+      border: none;
+      cursor: pointer;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    
+    .toggle-button.open {
+      background-color: var(--success);
+      color: var(--text-light);
+    }
+    
+    .toggle-button.closed {
+      background-color: var(--danger);
+      color: var(--text-light);
+    }
+    
+    .alert {
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .alert-success {
+      background-color: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--success);
+      color: var(--success);
+    }
+    
     @media (max-width: 1024px) {
       .sidebar {
         width: 200px;
@@ -345,7 +407,7 @@
     
     <div class="main-content">
       <div class="header">
-        <h2 class="page-title">Board Dashboard</h2>
+        <h2 class="page-title">Teacher Dashboard</h2>
         <form method="POST" action="/teacher/logout" class="logout-form">
           <button type="submit" class="logout-button">
             <i class="fas fa-sign-out-alt"></i>
@@ -354,7 +416,15 @@
         </form>
       </div>
       
-      
+      <!-- Display success message when responses are toggled -->
+      <% if (typeof req !== 'undefined' && req.query && req.query.responsesToggled) { %>
+        <div class="alert alert-success">
+          <i class="fas fa-check-circle"></i>
+          <span>
+            Quiz responses successfully <%= req.query.responsesToggled === 'opened' ? 'opened' : 'closed' %>.
+          </span>
+        </div>
+      <% } %>
       
       <div class="card">
         <div class="card-header">
@@ -369,10 +439,24 @@
             <% quizzes.forEach(quiz => { %>
               <li class="quiz-item">
                 <div class="quiz-info">
-                  <h4 class="quiz-title"><%= quiz.title %></h4>
+                  <h4 class="quiz-title">
+                    <%= quiz.title %>
+                    <!-- Show response status badge -->
+                    <span class="response-status <%= quiz.acceptingResponses ? 'open' : 'closed' %>">
+                      <i class="fas <%= quiz.acceptingResponses ? 'fa-lock-open' : 'fa-lock' %>"></i>
+                      <%= quiz.acceptingResponses ? 'Accepting Responses' : 'Responses Closed' %>
+                    </span>
+                  </h4>
                   <p class="quiz-date"><i class="far fa-calendar-alt"></i> <%= new Date(quiz.date).toDateString() %></p>
                 </div>
                 <div class="quiz-actions">
+                  <!-- Toggle response acceptance button -->
+                  <form method="POST" action="/teacher/toggle-responses/<%= quiz._id %>" class="toggle-form">
+                    <button type="submit" class="toggle-button <%= quiz.acceptingResponses ? 'closed' : 'open' %>">
+                      <i class="fas <%= quiz.acceptingResponses ? 'fa-lock' : 'fa-lock-open' %>"></i>
+                      <%= quiz.acceptingResponses ? 'Close Responses' : 'Open Responses' %>
+                    </button>
+                  </form>
                   <a href="/teacher/responses/<%= quiz._id %>" class="action-link download">
                     <i class="fas fa-download"></i>
                     <span>Download</span>
