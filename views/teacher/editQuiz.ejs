@@ -116,6 +116,12 @@
       padding-top: 15px;
       border-top: 1px dashed #ddd;
     }
+    
+    .descriptive-answer {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px dashed #ddd;
+    }
 
     .remove-btn {
       background-color: #dc3545;
@@ -187,37 +193,38 @@
 </head>
 
 <body>
-  <h2>Edit Quiz - <%= quiz.title %>
-  </h2>
+  <h2>Edit Quiz - <%= quiz.title %></h2>
   <form method="POST">
     <input type="text" name="title" value="<%= quiz.title %>" placeholder="Quiz Title" required />
     <input type="datetime-local" name="date" value="<%= new Date(quiz.date).toISOString().slice(0, 16) %>" required />
     <input type="number" name="duration" value="<%= quiz.duration %>" placeholder="Duration (in minutes)" required />
 
     <div id="questionsContainer">
-      <% quiz.questions.forEach((q, index)=> { %>
+      <% quiz.questions.forEach((q, index) => { %>
         <div class="question-block">
           <label>Question Type:</label>
-          <select name="questionType[]" onchange="toggleOptions(this)" <% if (q.type==='descriptive' ) { %>
-            value="descriptive" <% } else { %> value="mcq" <% } %>>
-                <option value="mcq">MCQ</option>
-                <option value="descriptive">Descriptive</option>
+          <select name="questionType[]" onchange="toggleOptions(this)">
+            <option value="mcq" <%= q.type === 'mcq' ? 'selected' : '' %>>MCQ</option>
+            <option value="descriptive" <%= q.type === 'descriptive' ? 'selected' : '' %>>Descriptive</option>
           </select>
 
           <input type="text" name="questionText[]" value="<%= q.question %>" placeholder="Enter question" required />
 
-          <div class="mcq-options" <% if (q.type==='descriptive' ) { %> style="display:none;" <% } %>>
-              <input type="text" name="option1[]" value="<%= q.options[0] %>" placeholder="Option 1" required />
-              <input type="text" name="option2[]" value="<%= q.options[1] %>" placeholder="Option 2" required />
-              <input type="text" name="option3[]" value="<%= q.options[2] %>" placeholder="Option 3" required />
-              <input type="text" name="option4[]" value="<%= q.options[3] %>" placeholder="Option 4" required />
-              <input type="text" name="correctAnswer[]" value="<%= q.correctAnswer %>" placeholder="Correct Answer"
-                required />
+          <div class="mcq-options" <%= q.type === 'descriptive' ? 'style="display:none;"' : '' %>>
+            <input type="text" name="option1[]" value="<%= q.options && q.options[0] ? q.options[0] : '' %>" placeholder="Option 1" <%= q.type === 'mcq' ? 'required' : '' %> />
+            <input type="text" name="option2[]" value="<%= q.options && q.options[1] ? q.options[1] : '' %>" placeholder="Option 2" <%= q.type === 'mcq' ? 'required' : '' %> />
+            <input type="text" name="option3[]" value="<%= q.options && q.options[2] ? q.options[2] : '' %>" placeholder="Option 3" <%= q.type === 'mcq' ? 'required' : '' %> />
+            <input type="text" name="option4[]" value="<%= q.options && q.options[3] ? q.options[3] : '' %>" placeholder="Option 4" <%= q.type === 'mcq' ? 'required' : '' %> />
+            <input type="text" name="correctAnswer[]" value="<%= q.type === 'mcq' ? q.correctAnswer : '' %>" placeholder="Correct Answer (for MCQ)" <%= q.type === 'mcq' ? 'required' : '' %> />
+          </div>
+
+          <div class="descriptive-answer" <%= q.type === 'mcq' ? 'style="display:none;"' : '' %>>
+            <input type="text" name="modelAnswer[]" value="<%= q.type === 'descriptive' ? q.correctAnswer : '' %>" placeholder="Model Answer (optional for descriptive)" />
           </div>
 
           <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
         </div>
-        <% }) %>
+      <% }) %>
     </div>
 
     <button type="button" onclick="addQuestion()">Add Question</button>
@@ -245,7 +252,11 @@
           <input type="text" name="option2[]" placeholder="Option 2" required />
           <input type="text" name="option3[]" placeholder="Option 3" required />
           <input type="text" name="option4[]" placeholder="Option 4" required />
-          <input type="text" name="correctAnswer[]" placeholder="Correct Answer" required />
+          <input type="text" name="correctAnswer[]" placeholder="Correct Answer (for MCQ)" required />
+        </div>
+
+        <div class="descriptive-answer" style="display:none;">
+          <input type="text" name="modelAnswer[]" placeholder="Model Answer (optional for descriptive)" />
         </div>
 
         <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
@@ -255,13 +266,34 @@
 
     function toggleOptions(select) {
       const block = select.parentElement;
-      const optionsDiv = block.querySelector('.mcq-options');
+      const mcqDiv = block.querySelector('.mcq-options');
+      const descriptiveDiv = block.querySelector('.descriptive-answer');
+      const mcqInputs = mcqDiv.querySelectorAll('input');
+      
       if (select.value === 'descriptive') {
-        optionsDiv.style.display = 'none';
+        mcqDiv.style.display = 'none';
+        descriptiveDiv.style.display = 'block';
+        // Remove required attribute from MCQ inputs
+        mcqInputs.forEach(input => {
+          input.required = false;
+        });
       } else {
-        optionsDiv.style.display = 'block';
+        mcqDiv.style.display = 'block';
+        descriptiveDiv.style.display = 'none';
+        // Add required attribute back to MCQ inputs
+        mcqInputs.forEach(input => {
+          input.required = true;
+        });
       }
     }
+
+    // Initialize all question types on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      const selects = document.querySelectorAll('select[name="questionType[]"]');
+      selects.forEach(select => {
+        toggleOptions(select);
+      });
+    });
   </script>
 </body>
 
