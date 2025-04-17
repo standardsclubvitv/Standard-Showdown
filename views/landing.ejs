@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" type="image/png" href="https://standardsclubvitv.github.io/image-api/images/logo.png">
   <title>Standards VITV</title>
+  <link rel="icon" type="image/png" href="https://standardsclubvitv.github.io/image-api/images/logo.png">
   <meta property="og:title" content="BIS Standards Quiz Platform">
   <meta property="og:description" content="Challenge yourself with quizzes based on BIS standards Club VITv.">
   <meta property="og:image" content="https://standardsclubvitv.github.io/image-api/images/1.jpg">
@@ -16,6 +16,7 @@
     :root {
       --primary: #3B82F6;
       --primary-dark: #1D4ED8;
+      --primary-light: #DBEAFE;
       --secondary: #34D399;
       --text-dark: #1F2937;
       --text-light: #F9FAFB;
@@ -41,6 +42,7 @@
       justify-content: center;
       align-items: center;
       padding: 2rem;
+      background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
 
     .container {
@@ -51,6 +53,12 @@
       border-radius: 1rem;
       box-shadow: var(--shadow);
       text-align: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .container:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.15);
     }
 
     .logo {
@@ -58,6 +66,20 @@
       font-size: 2.5rem;
       font-weight: 700;
       color: var(--primary);
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+      position: relative;
+      display: inline-block;
+    }
+
+    .logo:after {
+      content: "";
+      position: absolute;
+      width: 70%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      bottom: -10px;
+      left: 15%;
+      border-radius: 50%;
     }
 
     h1 {
@@ -97,6 +119,8 @@
       min-width: 200px;
       position: relative;
       overflow: hidden;
+      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.1);
+      transform: translateY(0);
     }
 
     .role-button:before {
@@ -114,6 +138,8 @@
 
     .role-button:hover {
       color: var(--text-light);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 15px rgba(59, 130, 246, 0.2);
     }
 
     .role-button:hover:before {
@@ -130,12 +156,147 @@
       margin-bottom: 0.75rem;
       position: relative;
       z-index: 1;
+      transition: transform 0.3s ease;
+    }
+
+    .role-button:hover .icon {
+      transform: scale(1.2);
+    }
+
+    .instruction-tabs {
+      margin: 2rem 0;
+      border-radius: 0.75rem;
+      overflow: hidden;
+    }
+
+    .tab-navigation {
+      display: flex;
+      background-color: #EEF2FF;
+      border-radius: 0.75rem 0.75rem 0 0;
+    }
+
+    .tab-button {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #6B7280;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .tab-button.active {
+      color: var(--primary);
+      background-color: white;
+    }
+
+    .tab-button:hover:not(.active) {
+      background-color: #DBEAFE;
+    }
+
+    .tab-button.active:after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background-color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 1.5rem;
+      background-color: white;
+      border: 1px solid #E5E7EB;
+      border-top: none;
+      text-align: left;
+      border-radius: 0 0 0.75rem 0.75rem;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .tab-content h3 {
+      color: var(--primary);
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+
+    .step {
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background-color: #F9FAFB;
+      border-radius: 0.5rem;
+      border-left: 3px solid var(--primary);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .step:hover {
+      transform: translateX(5px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .step-number {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      background-color: var(--primary);
+      color: white;
+      text-align: center;
+      line-height: 30px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      font-weight: bold;
+      font-size: 0.875rem;
+    }
+
+    .note {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background-color: #FFEDD5;
+      border-left: 3px solid #F59E0B;
+      border-radius: 0.5rem;
+      font-style: italic;
+      color: #92400E;
+    }
+
+    .note strong {
+      color: #78350F;
     }
 
     .footer {
       margin-top: 3rem;
       font-size: 0.875rem;
       color: #6B7280;
+      position: relative;
+      padding-top: 1.5rem;
+    }
+
+    .footer:before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 25%;
+      width: 50%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(107, 114, 128, 0.3), transparent);
     }
 
     @media (max-width: 640px) {
@@ -150,6 +311,10 @@
       .role-button {
         width: 100%;
       }
+      
+      .tab-navigation {
+        flex-direction: column;
+      }
     }
   </style>
   <!-- Including Font Awesome for icons -->
@@ -161,6 +326,50 @@
     <div class="logo">Standards Club VITV</div>
     <h1>Welcome to the Standard Showdown</h1>
     <p>Please select your role to proceed to the learning experience</p>
+
+    <div class="instruction-tabs">
+      <div class="tab-navigation">
+        <button class="tab-button active" onclick="openTab(event, 'login-instructions')">Login Instructions</button>
+        <button class="tab-button" onclick="openTab(event, 'faqs')">FAQs</button>
+      </div>
+
+      <div id="login-instructions" class="tab-content active">
+        <h3>Club Members & Non-Members</h3>
+        <div class="step">
+          <span class="step-number">1</span> <strong>Click on "Club Members Login"</strong> button below to begin the process.
+        </div>
+        <div class="step">
+          <span class="step-number">2</span> <strong>Sign up</strong> by entering your details: name, registration number, and VIT email ID (only VIT email IDs are accepted). Once completed, check your VIT email for the confirmation (including spam folder).
+        </div>
+        <div class="step">
+          <span class="step-number">3</span> <strong>Log in</strong> using your VIT email ID. You'll receive an OTP on your email which you'll need to enter. After verification, you'll see the dashboard with available quizzes. Click the Action button to start a quiz.
+        </div>
+        
+        <div class="note">
+          <i class="fas fa-info-circle"></i> Please ensure you have a stable network connection. If you face any issues, send an email to <strong>standardsclub@vit.ac.in</strong> with a screenshot so we can assist you.
+        </div>
+      </div>
+
+      <div id="faqs" class="tab-content">
+        <h3>Frequently Asked Questions</h3>
+        <div class="step">
+          <strong>Who should use the Club Members Login?</strong>
+          <p>Both club members and non-members should use the Club Members Login button to access quizzes.</p>
+        </div>
+        <div class="step">
+          <strong>What is the Board Login for?</strong>
+          <p>The Board Login is exclusively for board members to check answers and manage the platform.</p>
+        </div>
+        <div class="step">
+          <strong>I didn't receive a confirmation email. What should I do?</strong>
+          <p>Please check your spam folder. If you still can't find it, contact us at standardsclub@vit.ac.in.</p>
+        </div>
+        <div class="step">
+          <strong>Can I use a non-VIT email ID?</strong>
+          <p>No, only VIT email IDs are accepted for registration and login.</p>
+        </div>
+      </div>
+    </div>
 
     <div class="button-container">
       <button class="role-button" onclick="window.location.href='/student/login'">
@@ -177,6 +386,26 @@
       © 2025 Standards Club VITv. All rights reserved.
     </div>
   </div>
+
+  <script>
+    function openTab(evt, tabName) {
+      // Hide all tab content
+      const tabContents = document.getElementsByClassName("tab-content");
+      for (let i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+      }
+      
+      // Remove "active" class from all tab buttons
+      const tabButtons = document.getElementsByClassName("tab-button");
+      for (let i = 0; i < tabButtons.length; i++) {
+        tabButtons[i].classList.remove("active");
+      }
+      
+      // Show the current tab and add "active" class to the button
+      document.getElementById(tabName).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
+  </script>
 </body>
 
 </html>
